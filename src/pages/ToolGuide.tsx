@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
 import { ToolData, LessonData } from '../shared/types/types';
 import { deltaService } from '../shared/api/deltaService';
-import { ArrowLeft, BookOpen, Award, Target, Zap, ChevronRight } from 'lucide-react';
+import { ArrowLeft, BookOpen, Award, Target, Zap, ChevronRight } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 // ============================================
 // TOOL GUIDE — Comprehensive guide per tool
@@ -284,38 +292,32 @@ export function ToolGuide({ tool, onBack, onStartLesson }: ToolGuideProps) {
         onStartLesson(lesson);
     };
 
-    // Fallback for tools without curated guides — generate via Gemini
+    // Fallback for tools without curated guides
     if (!guide) {
         return (
-            <div className="screen-container">
-                <div style={{ height: 44 }} />
-                <div style={{ padding: '8px 20px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <button onClick={onBack} style={{
-                        width: 36, height: 36, borderRadius: 12,
-                        background: 'var(--surface-2)', border: '1px solid var(--border)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                    }}><ArrowLeft size={18} color="var(--text-2)" /></button>
-                    <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
-                        {tool.name} Guide
-                    </h1>
-                </div>
-                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
-                    <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 8px' }}>
-                        Guide Coming Soon
-                    </h2>
-                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6 }}>
+            <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+                <View style={{ height: 44 }} />
+                <View style={styles.topBar}>
+                    <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+                        <ArrowLeft size={18} color={colors.text2} />
+                    </TouchableOpacity>
+                    <Text style={styles.toolTitle}>{tool.name} Guide</Text>
+                </View>
+                <View style={styles.comingSoon}>
+                    <Text style={styles.comingSoonEmoji}>📖</Text>
+                    <Text style={styles.comingSoonTitle}>Guide Coming Soon</Text>
+                    <Text style={styles.comingSoonText}>
                         We're building a comprehensive guide for {tool.name}. In the meantime, generate a micro-lesson from the tool detail page.
-                    </p>
-                </div>
-            </div>
+                    </Text>
+                </View>
+            </ScrollView>
         );
     }
 
     const LEVEL_COLORS: Record<string, string> = {
-        'Beginner': 'var(--green)',
-        'Intermediate': 'var(--blue)',
-        'Advanced': 'var(--orange)',
+        'Beginner': colors.green,
+        'Intermediate': colors.blue,
+        'Advanced': colors.orange,
     };
     const LEVEL_ICONS: Record<string, string> = {
         'Beginner': '🟢',
@@ -323,140 +325,271 @@ export function ToolGuide({ tool, onBack, onStartLesson }: ToolGuideProps) {
         'Advanced': '🟠',
     };
 
+    const verdictBg = guide.verdict.rating === 'Yes'
+        ? 'rgba(52,211,153,0.06)'
+        : guide.verdict.rating === 'No'
+            ? 'rgba(239,68,68,0.06)'
+            : 'rgba(251,191,36,0.06)';
+    const verdictBorder = guide.verdict.rating === 'Yes'
+        ? 'rgba(52,211,153,0.2)'
+        : guide.verdict.rating === 'No'
+            ? 'rgba(239,68,68,0.2)'
+            : 'rgba(251,191,36,0.2)';
+    const verdictColor = guide.verdict.rating === 'Yes' ? colors.green : colors.yellow;
+
     return (
-        <div className="screen-container">
-            <div style={{ height: 44 }} />
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <View style={{ height: 44 }} />
 
             {/* Header */}
-            <div style={{ padding: '8px 20px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button onClick={onBack} style={{
-                    width: 36, height: 36, borderRadius: 12,
-                    background: 'var(--surface-2)', border: '1px solid var(--border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                }}><ArrowLeft size={18} color="var(--text-2)" /></button>
-                <div>
-                    <span style={{
-                        fontFamily: "'Syne', sans-serif", fontSize: 10, fontWeight: 700,
-                        textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: 'var(--accent-2)',
-                    }}>COMPREHENSIVE GUIDE</span>
-                    <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
-                        {tool.name}
-                    </h1>
-                </div>
-            </div>
+            <View style={styles.topBar}>
+                <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+                    <ArrowLeft size={18} color={colors.text2} />
+                </TouchableOpacity>
+                <View>
+                    <Text style={styles.headerLabel}>COMPREHENSIVE GUIDE</Text>
+                    <Text style={styles.toolTitle}>{tool.name}</Text>
+                </View>
+            </View>
 
             {/* Overview */}
-            <div style={{ padding: '0 20px', marginBottom: 24 }}>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 14,
-                    color: 'var(--text-2)', lineHeight: 1.7, margin: 0,
-                }}>{guide.overview}</p>
-            </div>
+            <View style={styles.section}>
+                <Text style={styles.overviewText}>{guide.overview}</Text>
+            </View>
 
             {/* Who It's For */}
-            <div style={{ padding: '0 20px', marginBottom: 24 }}>
-                <span style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: 10, fontWeight: 700,
-                    textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: 'var(--text-3)',
-                }}>WHO IT'S FOR</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+            <View style={styles.section}>
+                <Text style={styles.sectionLabel}>WHO IT'S FOR</Text>
+                <View style={styles.whoList}>
                     {guide.whoItsFor.map((who, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ color: 'var(--green)', fontSize: 12 }}>✓</span>
-                            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'var(--text-1)' }}>{who}</span>
-                        </div>
+                        <View key={i} style={styles.whoItem}>
+                            <Text style={styles.whoCheck}>✓</Text>
+                            <Text style={styles.whoText}>{who}</Text>
+                        </View>
                     ))}
-                </div>
-            </div>
+                </View>
+            </View>
 
             {/* Is It Worth It? Verdict */}
-            <div style={{
-                margin: '0 20px 24px', padding: '16px',
-                background: guide.verdict.rating === 'Yes'
-                    ? 'rgba(52,211,153,0.06)'
-                    : guide.verdict.rating === 'No'
-                        ? 'rgba(239,68,68,0.06)'
-                        : 'rgba(251,191,36,0.06)',
-                border: `1px solid ${guide.verdict.rating === 'Yes'
-                    ? 'rgba(52,211,153,0.2)'
-                    : guide.verdict.rating === 'No'
-                        ? 'rgba(239,68,68,0.2)'
-                        : 'rgba(251,191,36,0.2)'}`,
-                borderRadius: 20,
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Zap size={14} color={guide.verdict.rating === 'Yes' ? 'var(--green)' : 'var(--yellow)'} />
-                    <span style={{
-                        fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
-                        textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-                        color: guide.verdict.rating === 'Yes' ? 'var(--green)' : 'var(--yellow)',
-                    }}>IS IT WORTH IT? {guide.verdict.rating.toUpperCase()}</span>
-                </div>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 13,
-                    color: 'var(--text-1)', lineHeight: 1.6, margin: '0 0 8px',
-                }}>{guide.verdict.summary}</p>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 12,
-                    color: 'var(--text-3)', lineHeight: 1.5, margin: 0,
-                    fontStyle: 'italic',
-                }}>vs ChatGPT: {guide.verdict.vsGPT}</p>
-            </div>
+            <View style={[styles.verdictCard, { backgroundColor: verdictBg, borderColor: verdictBorder }]}>
+                <View style={styles.verdictHeader}>
+                    <Zap size={14} color={verdictColor} />
+                    <Text style={[styles.verdictLabel, { color: verdictColor }]}>
+                        IS IT WORTH IT? {guide.verdict.rating.toUpperCase()}
+                    </Text>
+                </View>
+                <Text style={styles.verdictSummary}>{guide.verdict.summary}</Text>
+                <Text style={styles.verdictVsGPT}>vs ChatGPT: {guide.verdict.vsGPT}</Text>
+            </View>
 
             {/* 3-Level Mastery Path */}
-            <div style={{ padding: '0 20px', marginBottom: 24 }}>
-                <span style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: 10, fontWeight: 700,
-                    textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: 'var(--text-3)',
-                }}>3-LEVEL MASTERY PATH</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+            <View style={styles.section}>
+                <Text style={styles.sectionLabel}>3-LEVEL MASTERY PATH</Text>
+                <View style={styles.masteryList}>
                     {guide.masteryLessons.map((ml) => (
-                        <button
+                        <TouchableOpacity
                             key={ml.level}
-                            onClick={() => handleStartMasteryLesson(ml)}
+                            onPress={() => handleStartMasteryLesson(ml)}
                             disabled={generating === ml.level}
-                            style={{
-                                width: '100%', textAlign: 'left', padding: '16px',
-                                background: 'var(--surface-2)', border: '1px solid var(--border)',
-                                borderRadius: 18, cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                opacity: generating === ml.level ? 0.7 : 1,
-                            }}
+                            style={[styles.masteryCard, generating === ml.level && styles.masteryCardDisabled]}
+                            activeOpacity={0.8}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                <span style={{ fontSize: 16 }}>{LEVEL_ICONS[ml.level]}</span>
-                                <span style={{
-                                    fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
-                                    textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-                                    color: LEVEL_COLORS[ml.level],
-                                }}>{ml.level}</span>
-                            </div>
-                            <div style={{
-                                fontFamily: "'DM Sans', sans-serif", fontSize: 14,
-                                fontWeight: 600, color: 'var(--text-1)', marginBottom: 4,
-                            }}>{ml.title}</div>
-                            <div style={{
-                                fontFamily: "'DM Sans', sans-serif", fontSize: 12,
-                                color: 'var(--text-3)', lineHeight: 1.5,
-                            }}>{ml.preview}</div>
-                            <div style={{
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                marginTop: 10, color: 'var(--accent-2)',
-                            }}>
-                                <BookOpen size={14} />
-                                <span style={{
-                                    fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600,
-                                }}>
+                            <View style={styles.masteryCardHeader}>
+                                <Text style={styles.masteryLevelIcon}>{LEVEL_ICONS[ml.level]}</Text>
+                                <Text style={[styles.masteryLevelLabel, { color: LEVEL_COLORS[ml.level] }]}>
+                                    {ml.level}
+                                </Text>
+                            </View>
+                            <Text style={styles.masteryTitle}>{ml.title}</Text>
+                            <Text style={styles.masteryPreview}>{ml.preview}</Text>
+                            <View style={styles.masteryCardCta}>
+                                <BookOpen size={14} color={colors.accent2} />
+                                <Text style={styles.masteryCtaText}>
                                     {generating === ml.level ? 'Opening...' : 'Start Lesson'}
-                                </span>
-                                <ChevronRight size={14} />
-                            </div>
-                        </button>
+                                </Text>
+                                <ChevronRight size={14} color={colors.accent2} />
+                            </View>
+                        </TouchableOpacity>
                     ))}
-                </div>
-            </div>
+                </View>
+            </View>
 
-            <div style={{ height: 40 }} />
-        </div>
+            <View style={{ height: 40 }} />
+        </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    topBar: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    backBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        color: colors.accent2,
+    },
+    toolTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: colors.text1,
+    },
+    section: {
+        paddingHorizontal: 20,
+        marginBottom: 24,
+    },
+    overviewText: {
+        fontSize: 14,
+        color: colors.text2,
+        lineHeight: 23.8,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        color: colors.text3,
+        marginBottom: 10,
+    },
+    whoList: {
+        gap: 6,
+        marginTop: 10,
+    },
+    whoItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    whoCheck: {
+        fontSize: 12,
+        color: colors.green,
+    },
+    whoText: {
+        fontSize: 13,
+        color: colors.text1,
+    },
+    verdictCard: {
+        marginHorizontal: 20,
+        marginBottom: 24,
+        padding: 16,
+        borderWidth: 1,
+        borderRadius: 20,
+    },
+    verdictHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    verdictLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    verdictSummary: {
+        fontSize: 13,
+        color: colors.text1,
+        lineHeight: 20.8,
+        marginBottom: 8,
+    },
+    verdictVsGPT: {
+        fontSize: 12,
+        color: colors.text3,
+        lineHeight: 18,
+        fontStyle: 'italic',
+    },
+    masteryList: {
+        gap: 12,
+        marginTop: 12,
+    },
+    masteryCard: {
+        width: '100%',
+        padding: 16,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 18,
+    },
+    masteryCardDisabled: {
+        opacity: 0.7,
+    },
+    masteryCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 8,
+    },
+    masteryLevelIcon: {
+        fontSize: 16,
+    },
+    masteryLevelLabel: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    masteryTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text1,
+        marginBottom: 4,
+    },
+    masteryPreview: {
+        fontSize: 12,
+        color: colors.text3,
+        lineHeight: 18,
+    },
+    masteryCardCta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 10,
+    },
+    masteryCtaText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.accent2,
+    },
+    comingSoon: {
+        alignItems: 'center',
+        padding: 40,
+        paddingHorizontal: 20,
+    },
+    comingSoonEmoji: {
+        fontSize: 48,
+        marginBottom: 16,
+    },
+    comingSoonTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.text1,
+        marginBottom: 8,
+    },
+    comingSoonText: {
+        fontSize: 13,
+        color: colors.text3,
+        lineHeight: 20.8,
+        textAlign: 'center',
+    },
+});

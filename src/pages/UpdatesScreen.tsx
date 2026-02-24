@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
 import { contentPipeline, scoreForUser } from '../entities/news/contentPipeline';
 import { deltaService } from '../shared/api/deltaService';
 import { storageService } from '../entities/user/storageService';
@@ -8,7 +15,8 @@ import { SectionLabel } from '../shared/ui/SectionLabel';
 import { FilterChips } from '../shared/ui/FilterChips';
 import { NewsCard } from '../features/NewsCard';
 import { FomoScore } from '../shared/ui/FomoScore';
-import { Play, Bookmark, BookOpen } from 'lucide-react';
+import { Play, Bookmark, BookOpen } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 interface UpdatesScreenProps {
     onSelectUpdate: (update: VerifiedUpdate) => void;
@@ -45,14 +53,10 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
 
     const hero = updates.length > 0 ? updates[0] : null;
 
-    // If we only have a few highly-filtered items, don't slice off the hero for the lists.
-    // Otherwise the user sees a mostly blank screen.
     const rest = updates.length <= 3 ? updates : updates.slice(1);
 
     const filtered = (() => {
         if (filter === '⚡ For You') {
-            // Sort all items by user relevance (since the pipeline already filtered for high quality)
-            // If we have <= 3 items total, don't exclude the hero from the list
             const baseList = scoredUpdates.length <= 3
                 ? scoredUpdates
                 : scoredUpdates.filter(s => s.update.id !== hero?.id);
@@ -85,67 +89,46 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
         }
     };
 
+    const getTypeColor = (type: string) => {
+        if (type === 'trick') return colors.orange;
+        if (type === 'capability') return colors.red;
+        if (type === 'workflow') return colors.blue;
+        if (type === 'new-tool') return colors.green;
+        return colors.accent2;
+    };
+
     return (
-        <div className="screen-container">
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Status bar */}
-            <div style={{ height: 44 }} />
+            <View style={{ height: 44 }} />
 
             {/* Header */}
-            <div style={{
-                padding: '8px 20px 16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h1 style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 24,
-                    fontWeight: 800,
-                    color: 'var(--text-1)',
-                    margin: 0,
-                }}>Updates</h1>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Updates</Text>
                 {/* Pipeline source indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        border: `1px solid ${stats.cacheHit ? 'rgba(96,165,250,0.4)' : 'rgba(52,211,153,0.4)'}`,
-                        borderRadius: 20,
-                        padding: '3px 10px',
-                    }}>
-                        <div className={loading ? 'animate-pulse-live' : ''} style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            background: stats.cacheHit ? 'var(--primary)' : 'var(--green)',
-                        }} />
-                        <span style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: stats.cacheHit ? 'var(--primary)' : 'var(--green)',
-                        }}>{stats.cacheHit ? 'Cached' : loading ? 'Fetching...' : 'Live'}</span>
-                    </div>
+                <View style={styles.headerRight}>
+                    <View style={[
+                        styles.statusBadge,
+                        { borderColor: stats.cacheHit ? 'rgba(96,165,250,0.4)' : 'rgba(52,211,153,0.4)' }
+                    ]}>
+                        <View style={[
+                            styles.statusDot,
+                            { backgroundColor: stats.cacheHit ? colors.accent : colors.green }
+                        ]} />
+                        <Text style={[
+                            styles.statusText,
+                            { color: stats.cacheHit ? colors.accent : colors.green }
+                        ]}>
+                            {stats.cacheHit ? 'Cached' : loading ? 'Fetching...' : 'Live'}
+                        </Text>
+                    </View>
                     {activeSources > 0 && (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            border: '1px solid var(--border)',
-                            borderRadius: 20,
-                            padding: '3px 10px',
-                        }}>
-                            <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: 10,
-                                fontWeight: 600,
-                                color: 'var(--text-3)',
-                            }}>{activeSources}/{totalSources} sources</span>
-                        </div>
+                        <View style={styles.sourcesBadge}>
+                            <Text style={styles.sourcesText}>{activeSources}/{totalSources} sources</Text>
+                        </View>
                     )}
-                </div>
-            </div>
+                </View>
+            </View>
 
             {/* Filter chips */}
             <FilterChips
@@ -156,180 +139,78 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
 
             {/* Hero Update Card */}
             {loading ? (
-                <div style={{
-                    margin: '0 20px 20px',
-                    borderRadius: 28,
-                    border: '1px solid var(--border-2)',
-                    overflow: 'hidden',
-                    background: 'var(--surface)',
-                    height: 260,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}>
-                    <div style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13,
-                        color: 'var(--text-3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                    }}>
-                        <div className="animate-pulse-live" style={{
-                            width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)',
-                        }} />
-                        Fetching live AI news...
-                    </div>
-                </div>
+                <View style={styles.heroSkeleton}>
+                    <View style={styles.skeletonLoading}>
+                        <View style={styles.skeletonDot} />
+                        <Text style={styles.skeletonText}>Fetching live AI news...</Text>
+                    </View>
+                </View>
             ) : hero ? (
-                <div
-                    onClick={() => onSelectUpdate(hero)}
-                    style={{
-                        margin: '0 20px 20px',
-                        borderRadius: 28,
-                        border: '1px solid var(--border-2)',
-                        overflow: 'hidden',
-                        background: 'var(--surface)',
-                        cursor: 'pointer',
-                        transition: 'transform 0.15s ease',
-                    }}
+                <TouchableOpacity
+                    onPress={() => onSelectUpdate(hero)}
+                    style={styles.heroCard}
+                    activeOpacity={0.85}
                 >
-                    {/* Gradient image zone */}
-                    <div style={{
-                        height: 110,
-                        background: 'linear-gradient(135deg, #1a0a1e 0%, #0f1a2e 40%, #0a1628 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'relative',
-                    }}>
-                        <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.15) 0%, transparent 70%)',
-                        }} />
-                        <span style={{ fontSize: 48, position: 'relative', zIndex: 1 }}>{hero.emoji || '🚀'}</span>
-                    </div>
+                    {/* Gradient image zone - use plain backgroundColor */}
+                    <View style={styles.heroImageZone}>
+                        <View style={styles.heroImageOverlay} />
+                        <Text style={styles.heroEmoji}>{hero.emoji || '🚀'}</Text>
+                    </View>
                     {/* Body */}
-                    <div style={{ padding: '16px 18px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                            <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: 10,
-                                fontWeight: 700,
-                                letterSpacing: '0.06em',
-                                textTransform: 'uppercase' as const,
-                                color: hero.type === 'trick' ? 'var(--orange)' : hero.type === 'capability' ? 'var(--red)' : hero.type === 'workflow' ? 'var(--blue)' : hero.type === 'new-tool' ? 'var(--green)' : 'var(--accent-2)',
-                            }}>{hero.tag}</span>
+                    <View style={styles.heroBody}>
+                        <View style={styles.heroTagRow}>
+                            <Text style={[styles.heroTag, { color: getTypeColor(hero.type) }]}>
+                                {hero.tag}
+                            </Text>
                             <FomoScore score={hero.fomoScore} />
-                        </div>
-                        <h2 style={{
-                            fontFamily: "'Syne', sans-serif",
-                            fontSize: 16,
-                            fontWeight: 700,
-                            color: 'var(--text-1)',
-                            lineHeight: 1.3,
-                            margin: '0 0 6px',
-                        }}>{hero.title}</h2>
-                        <p style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 13,
-                            color: 'var(--text-2)',
-                            lineHeight: 1.5,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical' as const,
-                            overflow: 'hidden',
-                            marginBottom: 14,
-                        }}>{hero.shortSummary}</p>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSelectUpdate(hero);
-                                }}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    background: 'var(--accent)',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: 14,
-                                    padding: '9px 16px',
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                }}>
-                                <Play size={14} fill="#fff" />
-                                Read More
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleHeroLesson();
-                                }}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    background: 'transparent',
-                                    color: generatingLesson ? 'var(--text-3)' : 'var(--accent-2)',
-                                    border: '1px solid var(--border-2)',
-                                    borderRadius: 14,
-                                    padding: '9px 16px',
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    cursor: generatingLesson ? 'not-allowed' : 'pointer',
-                                }}>
-                                <BookOpen size={14} />
-                                {generatingLesson ? 'Generating...' : 'Learn'}
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSaved(!saved);
-                                }}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    background: 'transparent',
-                                    color: saved ? 'var(--yellow)' : 'var(--text-2)',
-                                    border: `1px solid ${saved ? 'rgba(251,191,36,0.3)' : 'var(--border-2)'}`,
-                                    borderRadius: 14,
-                                    padding: '9px 16px',
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                }}>
-                                <Bookmark size={14} fill={saved ? 'var(--yellow)' : 'none'} />
-                                {saved ? 'Saved' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                        </View>
+                        <Text style={styles.heroTitle}>{hero.title}</Text>
+                        <Text style={styles.heroSummary} numberOfLines={2}>{hero.shortSummary}</Text>
+                        <View style={styles.heroButtons}>
+                            <TouchableOpacity
+                                onPress={() => onSelectUpdate(hero)}
+                                style={styles.readMoreBtn}
+                                activeOpacity={0.8}
+                            >
+                                <Play size={14} color="#fff" fill="#fff" />
+                                <Text style={styles.readMoreText}>Read More</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleHeroLesson}
+                                style={[styles.learnBtn, generatingLesson && styles.learnBtnDisabled]}
+                                activeOpacity={0.8}
+                                disabled={generatingLesson}
+                            >
+                                <BookOpen size={14} color={generatingLesson ? colors.text3 : colors.accent2} />
+                                <Text style={[styles.learnText, generatingLesson && styles.learnTextDisabled]}>
+                                    {generatingLesson ? 'Generating...' : 'Learn'}
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => setSaved(!saved)}
+                                style={[styles.saveBtn, saved && styles.saveBtnActive]}
+                                activeOpacity={0.8}
+                            >
+                                <Bookmark size={14} color={saved ? colors.yellow : colors.text2} fill={saved ? colors.yellow : 'none'} />
+                                <Text style={[styles.saveText, saved && styles.saveTextActive]}>
+                                    {saved ? 'Saved' : 'Save'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
             ) : null}
 
             {/* More Updates */}
             <SectionLabel>📰 MORE UPDATES</SectionLabel>
-            <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <View style={styles.updatesList}>
                 {loading ? (
                     [1, 2, 3].map(i => (
-                        <div key={i} style={{
-                            padding: '14px 16px',
-                            background: 'var(--surface-2)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 20,
-                            height: 72,
-                        }}>
-                            <div className="skeleton" style={{ width: '30%', height: 10, borderRadius: 4, marginBottom: 8 }} />
-                            <div className="skeleton" style={{ width: '80%', height: 14, borderRadius: 4, marginBottom: 8 }} />
-                            <div className="skeleton" style={{ width: '40%', height: 10, borderRadius: 4 }} />
-                        </div>
+                        <View key={i} style={styles.skeletonCard}>
+                            <View style={styles.skeletonLine30} />
+                            <View style={styles.skeletonLine80} />
+                            <View style={styles.skeletonLine40} />
+                        </View>
                     ))
                 ) : filtered.map((item) => (
                     <NewsCard
@@ -338,9 +219,246 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                         onClick={() => onSelectUpdate(item)}
                     />
                 ))}
-            </div>
+            </View>
 
-            <div style={{ height: 20 }} />
-        </div>
+            <View style={{ height: 20 }} />
+        </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: colors.text1,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        borderWidth: 1,
+        borderRadius: 20,
+        paddingVertical: 3,
+        paddingHorizontal: 10,
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    sourcesBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 20,
+        paddingVertical: 3,
+        paddingHorizontal: 10,
+    },
+    sourcesText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: colors.text3,
+    },
+    heroSkeleton: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: colors.border2,
+        backgroundColor: colors.surface,
+        height: 260,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    skeletonLoading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    skeletonDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.accent,
+    },
+    skeletonText: {
+        fontSize: 13,
+        color: colors.text3,
+    },
+    heroCard: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: colors.border2,
+        overflow: 'hidden',
+        backgroundColor: colors.surface,
+    },
+    heroImageZone: {
+        height: 110,
+        backgroundColor: '#0f1a2e',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    heroImageOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(99,102,241,0.10)',
+    },
+    heroEmoji: {
+        fontSize: 48,
+        zIndex: 1,
+    },
+    heroBody: {
+        padding: 16,
+        paddingBottom: 18,
+    },
+    heroTagRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    heroTag: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.6,
+        textTransform: 'uppercase',
+    },
+    heroTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.text1,
+        lineHeight: 20.8,
+        marginBottom: 6,
+    },
+    heroSummary: {
+        fontSize: 13,
+        color: colors.text2,
+        lineHeight: 19.5,
+        marginBottom: 14,
+    },
+    heroButtons: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    readMoreBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: colors.accent,
+        borderRadius: 14,
+        paddingVertical: 9,
+        paddingHorizontal: 16,
+    },
+    readMoreText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    learnBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: colors.border2,
+        borderRadius: 14,
+        paddingVertical: 9,
+        paddingHorizontal: 16,
+    },
+    learnBtnDisabled: {
+        opacity: 0.5,
+    },
+    learnText: {
+        color: colors.accent2,
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    learnTextDisabled: {
+        color: colors.text3,
+    },
+    saveBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: colors.border2,
+        borderRadius: 14,
+        paddingVertical: 9,
+        paddingHorizontal: 16,
+    },
+    saveBtnActive: {
+        borderColor: 'rgba(251,191,36,0.3)',
+    },
+    saveText: {
+        color: colors.text2,
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    saveTextActive: {
+        color: colors.yellow,
+    },
+    updatesList: {
+        paddingHorizontal: 20,
+        gap: 10,
+    },
+    skeletonCard: {
+        padding: 14,
+        paddingHorizontal: 16,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 20,
+        height: 72,
+        marginBottom: 10,
+    },
+    skeletonLine30: {
+        width: '30%',
+        height: 10,
+        borderRadius: 4,
+        backgroundColor: colors.surface3,
+        marginBottom: 8,
+    },
+    skeletonLine80: {
+        width: '80%',
+        height: 14,
+        borderRadius: 4,
+        backgroundColor: colors.surface3,
+        marginBottom: 8,
+    },
+    skeletonLine40: {
+        width: '40%',
+        height: 10,
+        borderRadius: 4,
+        backgroundColor: colors.surface3,
+    },
+});

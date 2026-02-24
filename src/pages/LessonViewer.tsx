@@ -1,19 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+    Linking,
+} from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { LessonData } from '../shared/types/types';
 import { storageService } from '../entities/user/storageService';
-import { ArrowLeft, CheckCircle, Copy, Clock, Sparkles, ChevronRight, ExternalLink, PlayCircle } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { ArrowLeft, CheckCircle, Copy, Clock, Sparkles, ChevronRight, ExternalLink, PlayCircle } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 interface LessonViewerProps {
     lesson: LessonData;
     onBack: () => void;
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <View style={sectionLabelStyles.container}>
+            <Text style={sectionLabelStyles.text}>{children}</Text>
+        </View>
+    );
+}
+
+const sectionLabelStyles = StyleSheet.create({
+    container: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    text: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: colors.text3,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+    },
+});
+
 export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
     const [currentStep, setCurrentStep] = useState(0);
     const [completed, setCompleted] = useState(false);
     const [copied, setCopied] = useState(false);
-
     const [leveledUpTo, setLeveledUpTo] = useState<string | null>(null);
 
     const steps = lesson.steps || ['Every AI tool has a core mental model — a way of thinking about inputs and outputs. The first step to mastering any tool is understanding what it\'s optimized for and where it falls short.', 'The most impactful technique across all AI tools is structured prompting: Context (who you are) → Task (what you need) → Constraints (format, length, tone). Try this now with any AI tool you have open.', 'Practice makes permanent: take one real task you have today and complete it using the structured prompt approach. Compare the output to what you would have gotten with a vague prompt.'];
@@ -21,47 +53,18 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
     const isLastStep = currentStep >= totalSteps - 1;
 
     const handleComplete = () => {
-        // Trigger realistic confetti explosion
-        const duration = 3000;
-        const animationEnd = Date.now() + duration;
-        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
-
-        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-        const interval: any = setInterval(function () {
-            const timeLeft = animationEnd - Date.now();
-
-            if (timeLeft <= 0) {
-                return clearInterval(interval);
-            }
-
-            const particleCount = 50 * (timeLeft / duration);
-            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-        }, 250);
-
         // Award XP via centralized service
         const { user, leveledUp } = storageService.addXP(lesson.xp || 25, lesson.id);
 
         if (leveledUp) {
             setLeveledUpTo(user.levelTitle);
-
-            // Extra grand confetti for level up
-            setTimeout(() => {
-                confetti({
-                    particleCount: 150,
-                    spread: 100,
-                    origin: { y: 0.6 },
-                    colors: ['#fcd34d', '#f59e0b', '#fff']
-                });
-            }, 1000);
         }
         setCompleted(true);
     };
 
-    const handleCopyPrompt = () => {
+    const handleCopyPrompt = async () => {
         if (lesson.taskPrompt) {
-            navigator.clipboard.writeText(lesson.taskPrompt).catch(() => { });
+            await Clipboard.setStringAsync(lesson.taskPrompt);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
@@ -69,362 +72,608 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
 
     if (completed) {
         return (
-            <div className="screen-container" style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', minHeight: '100%', padding: '40px 20px',
-                background: leveledUpTo ? 'linear-gradient(180deg, rgba(251,191,36,0.1) 0%, transparent 100%)' : 'linear-gradient(180deg, rgba(52,211,153,0.1) 0%, transparent 100%)',
-            }}>
-                <div style={{
-                    width: 100, height: 100, borderRadius: '50%',
-                    background: leveledUpTo ? 'linear-gradient(135deg, var(--yellow), #fcd34d)' : 'linear-gradient(135deg, var(--green), #2dd4bf)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: 32,
-                    boxShadow: leveledUpTo ? '0 0 60px rgba(251,191,36,0.4)' : '0 0 60px rgba(52,211,153,0.4)',
-                    animation: 'zoomIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    transform: 'scale(1)',
-                }}>
+            <ScrollView
+                style={styles.completedContainer}
+                contentContainerStyle={styles.completedContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={[
+                    styles.completedIcon,
+                    leveledUpTo ? styles.completedIconLevelUp : styles.completedIconNormal,
+                ]}>
                     <CheckCircle size={50} color="#fff" />
-                </div>
+                </View>
 
                 {leveledUpTo && (
-                    <div style={{
-                        fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 800,
-                        color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.2em',
-                        marginBottom: 12, animation: 'fadeInUp 0.6s ease',
-                        background: 'rgba(251,191,36,0.15)', padding: '6px 16px', borderRadius: 100,
-                    }}>LEVEL UP</div>
+                    <View style={styles.levelUpBadge}>
+                        <Text style={styles.levelUpText}>LEVEL UP</Text>
+                    </View>
                 )}
 
-                <h2 style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: leveledUpTo ? 36 : 28, fontWeight: 800,
-                    color: 'var(--text-1)', margin: '0 0 12px', textAlign: 'center',
-                    animation: 'fadeInUp 0.7s ease', letterSpacing: '-0.02em',
-                }}>{leveledUpTo ? `You are a ${leveledUpTo}!` : 'Lesson Complete!'}</h2>
+                <Text style={[styles.completedTitle, leveledUpTo && styles.completedTitleLarge]}>
+                    {leveledUpTo ? `You are a ${leveledUpTo}!` : 'Lesson Complete!'}
+                </Text>
 
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 16,
-                    color: 'var(--text-2)', textAlign: 'center', marginBottom: 40,
-                    animation: 'fadeInUp 0.8s ease', maxWidth: 280, lineHeight: 1.5,
-                }}>{lesson.title}</p>
+                <Text style={styles.completedSubtitle}>{lesson.title}</Text>
 
-                <div style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 40,
-                    animation: 'fadeInUp 0.9s ease',
-                    background: 'var(--surface-2)', border: '1px solid var(--border)',
-                    padding: '24px 48px', borderRadius: 24, width: '100%', maxWidth: 300,
-                }}>
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>XP GAINED</span>
-                    <span style={{
-                        fontFamily: "'Syne', sans-serif", fontSize: 40, fontWeight: 800,
-                        color: leveledUpTo ? 'var(--yellow)' : 'var(--green)',
-                        textShadow: leveledUpTo ? '0 0 20px rgba(251,191,36,0.3)' : '0 0 20px rgba(52,211,153,0.3)',
-                    }}>+{lesson.xp || 25}</span>
-                </div>
+                <View style={styles.xpCard}>
+                    <Text style={styles.xpLabel}>XP GAINED</Text>
+                    <Text style={[styles.xpValue, leveledUpTo ? styles.xpValueLevelUp : styles.xpValueNormal]}>
+                        +{lesson.xp || 25}
+                    </Text>
+                </View>
 
-                <style>
-                    {`
-                        @keyframes zoomIn {
-                            from { opacity: 0; transform: scale(0.5); }
-                            to { opacity: 1; transform: scale(1); }
-                        }
-                    `}
-                </style>
-
-                <button onClick={onBack} style={{
-                    padding: '16px 36px', width: '100%', maxWidth: 300,
-                    background: 'var(--text-1)', color: 'var(--bg)', border: 'none',
-                    borderRadius: 16, fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 16, fontWeight: 700, cursor: 'pointer',
-                    animation: 'fadeInUp 1s ease', transition: 'transform 0.2s ease',
-                }}>Back to App</button>
-            </div>
+                <TouchableOpacity
+                    onPress={onBack}
+                    style={styles.backToAppBtn}
+                    activeOpacity={0.85}
+                >
+                    <Text style={styles.backToAppText}>Back to App</Text>
+                </TouchableOpacity>
+            </ScrollView>
         );
     }
 
     return (
-        <div className="screen-container">
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Status bar */}
-            <div style={{ height: 44 }} />
+            <View style={{ height: 44 }} />
 
             {/* Top bar */}
-            <div style={{
-                padding: '8px 20px 16px',
-                display: 'flex', alignItems: 'center', gap: 12,
-            }}>
-                <button onClick={onBack} style={{
-                    width: 36, height: 36, borderRadius: 12,
-                    background: 'var(--surface-2)', border: '1px solid var(--border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', flexShrink: 0,
-                }}>
-                    <ArrowLeft size={18} color="var(--text-2)" />
-                </button>
-                <div style={{ flex: 1 }}>
-                    <div style={{
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 10,
-                        fontWeight: 700, textTransform: 'uppercase' as const,
-                        letterSpacing: '0.12em', color: 'var(--accent-2)',
-                    }}>{lesson.pill || 'MICRO-LESSON'}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Clock size={12} color="var(--text-3)" />
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'var(--text-3)' }}>
-                        {lesson.duration || '2 min'}
-                    </span>
-                    <span style={{
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 11,
-                        fontWeight: 700, color: 'var(--yellow)',
-                        background: 'rgba(251,191,36,0.15)', padding: '2px 8px',
-                        borderRadius: 9999,
-                    }}>+{lesson.xp || 25} XP</span>
-                </div>
-            </div>
+            <View style={styles.topBar}>
+                <TouchableOpacity
+                    onPress={onBack}
+                    style={styles.backBtn}
+                    activeOpacity={0.7}
+                >
+                    <ArrowLeft size={18} color={colors.text2} />
+                </TouchableOpacity>
+                <View style={styles.topBarCenter}>
+                    <Text style={styles.pillText}>{lesson.pill || 'MICRO-LESSON'}</Text>
+                </View>
+                <View style={styles.topBarRight}>
+                    <Clock size={12} color={colors.text3} />
+                    <Text style={styles.durationText}>{lesson.duration || '2 min'}</Text>
+                    <View style={styles.xpBadge}>
+                        <Text style={styles.xpBadgeText}>+{lesson.xp || 25} XP</Text>
+                    </View>
+                </View>
+            </View>
 
             {/* Title */}
-            <div style={{ padding: '0 20px 20px' }}>
-                <h1 style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800,
-                    color: 'var(--text-1)', margin: 0, lineHeight: 1.3,
-                }}>{lesson.title}</h1>
+            <View style={styles.titleSection}>
+                <Text style={styles.title}>{lesson.title}</Text>
                 {lesson.preview && (
-                    <p style={{
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 13,
-                        color: 'var(--text-2)', marginTop: 8, lineHeight: 1.6,
-                    }}>{lesson.preview}</p>
+                    <Text style={styles.preview}>{lesson.preview}</Text>
                 )}
-            </div>
+            </View>
 
             {/* Progress bar */}
-            <div style={{ padding: '0 20px 20px' }}>
-                <div style={{ display: 'flex', gap: 4 }}>
+            <View style={styles.progressSection}>
+                <View style={styles.progressBarRow}>
                     {steps.map((_, i) => (
-                        <div key={i} style={{
-                            flex: 1, height: 4, borderRadius: 100,
-                            background: i <= currentStep ? 'var(--accent)' : 'var(--surface-3)',
-                            transition: 'background 0.3s ease',
-                        }} />
+                        <View
+                            key={i}
+                            style={[
+                                styles.progressSegment,
+                                { backgroundColor: i <= currentStep ? colors.accent : colors.surface3 },
+                            ]}
+                        />
                     ))}
-                </div>
-                <div style={{
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 11,
-                    color: 'var(--text-3)', marginTop: 6,
-                }}>Step {currentStep + 1} of {totalSteps}</div>
-            </div>
+                </View>
+                <Text style={styles.progressText}>Step {currentStep + 1} of {totalSteps}</Text>
+            </View>
 
             {/* Current Step Content */}
-            <div key={`step-${currentStep}`} style={{
-                margin: '0 20px 20px', padding: '24px',
-                background: 'var(--surface-2)', border: '1px solid var(--border)',
-                borderRadius: 24, animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            }}>
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
-                }}>
-                    <div style={{
-                        width: 32, height: 32, borderRadius: '50%',
-                        background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 800,
-                        color: '#fff', boxShadow: '0 0 12px rgba(99,102,241,0.5)',
-                    }}>{currentStep + 1}</div>
-                    <span style={{
-                        fontFamily: "'Syne', sans-serif", fontSize: 12,
-                        fontWeight: 700, color: 'var(--text-1)',
-                        textTransform: 'uppercase' as const, letterSpacing: '0.1em',
-                    }}>STEP {currentStep + 1}</span>
-                </div>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 15,
-                    color: 'var(--text-1)', lineHeight: 1.6, margin: 0,
-                }}>{steps[currentStep]}</p>
-            </div>
+            <View style={styles.stepCard}>
+                <View style={styles.stepHeader}>
+                    <View style={styles.stepNumCircle}>
+                        <Text style={styles.stepNumText}>{currentStep + 1}</Text>
+                    </View>
+                    <Text style={styles.stepLabel}>STEP {currentStep + 1}</Text>
+                </View>
+                <Text style={styles.stepContent}>{steps[currentStep]}</Text>
+            </View>
 
             {/* Practice Task (show on last step) */}
             {isLastStep && lesson.practiceTask && (
-                <div style={{
-                    margin: '0 20px 16px', padding: '20px',
-                    background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)',
-                    borderRadius: 20, animation: 'fadeInUp 0.5s ease',
-                }}>
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
-                    }}>
-                        <div style={{ background: 'rgba(52,211,153,0.2)', padding: '6px', borderRadius: '50%' }}>
-                            <Sparkles size={16} color="var(--green)" />
-                        </div>
-                        <span style={{
-                            fontFamily: "'Syne', sans-serif", fontSize: 12,
-                            fontWeight: 800, color: 'var(--green)',
-                            textTransform: 'uppercase' as const, letterSpacing: '0.1em',
-                        }}>PRACTICE TASK</span>
-                    </div>
-                    <p style={{
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 14,
-                        color: 'var(--text-1)', lineHeight: 1.6, margin: 0,
-                    }}>{lesson.practiceTask}</p>
-                </div>
+                <View style={styles.practiceCard}>
+                    <View style={styles.practiceHeader}>
+                        <View style={styles.practiceIconWrapper}>
+                            <Sparkles size={16} color={colors.green} />
+                        </View>
+                        <Text style={styles.practiceLabelText}>PRACTICE TASK</Text>
+                    </View>
+                    <Text style={styles.practiceText}>{lesson.practiceTask}</Text>
+                </View>
             )}
 
             {/* Copy-Paste Prompt (show on last step) */}
             {isLastStep && lesson.taskPrompt && (
-                <div style={{
-                    margin: '0 20px 20px', padding: '14px',
-                    background: 'var(--surface-3)', border: '1px solid var(--border)',
-                    borderRadius: 16,
-                }}>
-                    <div style={{
-                        display: 'flex', justifyContent: 'space-between',
-                        alignItems: 'center', marginBottom: 8,
-                    }}>
-                        <span style={{
-                            fontFamily: "'DM Mono', monospace", fontSize: 10,
-                            fontWeight: 500, color: 'var(--text-3)',
-                            textTransform: 'uppercase' as const, letterSpacing: '0.1em',
-                        }}>READY-TO-USE PROMPT</span>
-                        <button onClick={handleCopyPrompt} style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            fontFamily: "'DM Sans', sans-serif", fontSize: 11,
-                            color: copied ? 'var(--green)' : 'var(--accent-2)',
-                        }}>
-                            <Copy size={12} />
-                            {copied ? 'Copied!' : 'Copy'}
-                        </button>
-                    </div>
-                    <p style={{
-                        fontFamily: "'DM Mono', monospace", fontSize: 12,
-                        color: 'var(--text-2)', lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap',
-                    }}>{lesson.taskPrompt}</p>
-                </div>
+                <View style={styles.promptCard}>
+                    <View style={styles.promptHeader}>
+                        <Text style={styles.promptLabel}>READY-TO-USE PROMPT</Text>
+                        <TouchableOpacity
+                            onPress={handleCopyPrompt}
+                            style={styles.copyBtn}
+                            activeOpacity={0.7}
+                        >
+                            <Copy size={12} color={copied ? colors.green : colors.accent2} />
+                            <Text style={[styles.copyText, copied && styles.copyTextCopied]}>
+                                {copied ? 'Copied!' : 'Copy'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={styles.promptText}>{lesson.taskPrompt}</Text>
+                </View>
             )}
 
             {/* Navigation Buttons */}
-            <div style={{
-                padding: '0 20px', display: 'flex', gap: 10,
-            }}>
+            <View style={styles.navButtons}>
                 {currentStep > 0 && (
-                    <button onClick={() => setCurrentStep(prev => prev - 1)} style={{
-                        flex: 1, padding: '12px',
-                        background: 'var(--surface-2)', color: 'var(--text-2)',
-                        border: '1px solid var(--border)', borderRadius: 14,
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 13,
-                        fontWeight: 600, cursor: 'pointer',
-                    }}>← Previous</button>
+                    <TouchableOpacity
+                        onPress={() => setCurrentStep(prev => prev - 1)}
+                        style={styles.prevBtn}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.prevBtnText}>← Previous</Text>
+                    </TouchableOpacity>
                 )}
-                <button
-                    onClick={isLastStep ? handleComplete : () => setCurrentStep(prev => prev + 1)}
-                    style={{
-                        flex: 1, padding: '12px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        background: isLastStep ? 'linear-gradient(135deg, var(--green), #2dd4bf)' : 'var(--accent)',
-                        color: '#fff', border: 'none', borderRadius: 14,
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 13,
-                        fontWeight: 600, cursor: 'pointer',
-                    }}
+                <TouchableOpacity
+                    onPress={isLastStep ? handleComplete : () => setCurrentStep(prev => prev + 1)}
+                    style={[styles.nextBtn, isLastStep && styles.nextBtnComplete]}
+                    activeOpacity={0.85}
                 >
                     {isLastStep ? (
                         <>
-                            <CheckCircle size={16} />
-                            Complete (+{lesson.xp || 25} XP)
+                            <CheckCircle size={16} color="#fff" />
+                            <Text style={styles.nextBtnText}>Complete (+{lesson.xp || 25} XP)</Text>
                         </>
                     ) : (
                         <>
-                            Next Step
-                            <ChevronRight size={16} />
+                            <Text style={styles.nextBtnText}>Next Step</Text>
+                            <ChevronRight size={16} color="#fff" />
                         </>
                     )}
-                </button>
-            </div>
+                </TouchableOpacity>
+            </View>
 
             {/* Related Sources */}
             {lesson.sources && lesson.sources.length > 0 && (
-                <div style={{ padding: '24px 20px' }}>
+                <View style={styles.sourcesSection}>
                     <SectionLabel>📺 RELATED RESOURCES</SectionLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <View style={styles.sourcesList}>
                         {lesson.sources.map((source, i) => (
-                            <a
+                            <TouchableOpacity
                                 key={i}
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                    display: 'flex',
-                                    gap: 12,
-                                    padding: '12px',
-                                    background: 'var(--surface-2)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 16,
-                                    textDecoration: 'none',
-                                    alignItems: 'center',
-                                    transition: 'transform 0.2s ease',
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                                onPress={() => Linking.openURL(source.url)}
+                                style={styles.sourceItem}
+                                activeOpacity={0.8}
                             >
                                 {source.thumbnail ? (
-                                    <div style={{
-                                        width: 80, height: 45, borderRadius: 8,
-                                        backgroundImage: `url(${source.thumbnail})`,
-                                        backgroundSize: 'cover', backgroundPosition: 'center',
-                                        position: 'relative', flexShrink: 0,
-                                    }}>
-                                        <div style={{
-                                            position: 'absolute', inset: 0,
-                                            background: 'rgba(0,0,0,0.3)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            borderRadius: 8
-                                        }}>
+                                    <View style={styles.sourceThumbnail}>
+                                        <View style={styles.sourceThumbnailOverlay}>
                                             <PlayCircle size={20} color="#fff" />
-                                        </div>
-                                    </div>
+                                        </View>
+                                    </View>
                                 ) : (
-                                    <div style={{
-                                        width: 40, height: 40, borderRadius: 10,
-                                        background: 'var(--surface-3)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        flexShrink: 0
-                                    }}>
-                                        <ExternalLink size={18} color="var(--accent-2)" />
-                                    </div>
+                                    <View style={styles.sourceIconWrapper}>
+                                        <ExternalLink size={18} color={colors.accent2} />
+                                    </View>
                                 )}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{
-                                        fontFamily: "'DM Sans', sans-serif", fontSize: 13,
-                                        fontWeight: 600, color: 'var(--text-1)',
-                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                                    }}>{source.title}</div>
-                                    <div style={{
-                                        fontFamily: "'DM Sans', sans-serif", fontSize: 11,
-                                        color: 'var(--text-3)', marginTop: 2
-                                    }}>{source.url.includes('youtube.com') ? 'YouTube Video' : 'Reference Link'}</div>
-                                </div>
-                            </a>
+                                <View style={styles.sourceInfo}>
+                                    <Text style={styles.sourceTitle} numberOfLines={1}>{source.title}</Text>
+                                    <Text style={styles.sourceType}>
+                                        {source.url.includes('youtube.com') ? 'YouTube Video' : 'Reference Link'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
                         ))}
-                    </div>
-                </div>
+                    </View>
+                </View>
             )}
 
-            <div style={{ height: 40 }} />
-        </div>
+            <View style={{ height: 40 }} />
+        </ScrollView>
     );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-    return (
-        <div style={{
-            fontFamily: "'Syne', sans-serif",
-            fontSize: 11,
-            fontWeight: 800,
-            color: 'var(--text-3)',
-            letterSpacing: '0.12em',
-            margin: '0 0 12px 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-        }}>
-            {children}
-        </div>
-    );
-}
-
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    completedContainer: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    completedContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100%',
+        padding: 40,
+        paddingHorizontal: 20,
+    },
+    completedIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+    },
+    completedIconNormal: {
+        backgroundColor: colors.green,
+    },
+    completedIconLevelUp: {
+        backgroundColor: colors.yellow,
+    },
+    levelUpBadge: {
+        backgroundColor: 'rgba(251,191,36,0.15)',
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 100,
+        marginBottom: 12,
+    },
+    levelUpText: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: colors.yellow,
+        textTransform: 'uppercase',
+        letterSpacing: 3,
+    },
+    completedTitle: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: colors.text1,
+        marginBottom: 12,
+        textAlign: 'center',
+        letterSpacing: -0.5,
+    },
+    completedTitleLarge: {
+        fontSize: 36,
+    },
+    completedSubtitle: {
+        fontSize: 16,
+        color: colors.text2,
+        textAlign: 'center',
+        marginBottom: 40,
+        maxWidth: 280,
+        lineHeight: 24,
+    },
+    xpCard: {
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 40,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingVertical: 24,
+        paddingHorizontal: 48,
+        borderRadius: 24,
+        width: '100%',
+        maxWidth: 300,
+    },
+    xpLabel: {
+        fontSize: 12,
+        color: colors.text3,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        fontWeight: '700',
+    },
+    xpValue: {
+        fontSize: 40,
+        fontWeight: '800',
+    },
+    xpValueNormal: {
+        color: colors.green,
+    },
+    xpValueLevelUp: {
+        color: colors.yellow,
+    },
+    backToAppBtn: {
+        paddingVertical: 16,
+        paddingHorizontal: 36,
+        width: '100%',
+        maxWidth: 300,
+        backgroundColor: colors.text1,
+        borderRadius: 16,
+        alignItems: 'center',
+    },
+    backToAppText: {
+        color: colors.bg,
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    topBar: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    backBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    topBarCenter: {
+        flex: 1,
+    },
+    pillText: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        color: colors.accent2,
+    },
+    topBarRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    durationText: {
+        fontSize: 11,
+        color: colors.text3,
+    },
+    xpBadge: {
+        backgroundColor: 'rgba(251,191,36,0.15)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: radius.full,
+    },
+    xpBadgeText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.yellow,
+    },
+    titleSection: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+    },
+    title: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: colors.text1,
+        lineHeight: 28.6,
+    },
+    preview: {
+        fontSize: 13,
+        color: colors.text2,
+        marginTop: 8,
+        lineHeight: 20.8,
+    },
+    progressSection: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+    },
+    progressBarRow: {
+        flexDirection: 'row',
+        gap: 4,
+    },
+    progressSegment: {
+        flex: 1,
+        height: 4,
+        borderRadius: 100,
+    },
+    progressText: {
+        fontSize: 11,
+        color: colors.text3,
+        marginTop: 6,
+    },
+    stepCard: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        padding: 24,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 24,
+    },
+    stepHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 16,
+    },
+    stepNumCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stepNumText: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#fff',
+    },
+    stepLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.text1,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    stepContent: {
+        fontSize: 15,
+        color: colors.text1,
+        lineHeight: 24,
+    },
+    practiceCard: {
+        marginHorizontal: 20,
+        marginBottom: 16,
+        padding: 20,
+        backgroundColor: 'rgba(52,211,153,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(52,211,153,0.3)',
+        borderRadius: 20,
+    },
+    practiceHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    practiceIconWrapper: {
+        backgroundColor: 'rgba(52,211,153,0.2)',
+        padding: 6,
+        borderRadius: radius.full,
+    },
+    practiceLabelText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: colors.green,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    practiceText: {
+        fontSize: 14,
+        color: colors.text1,
+        lineHeight: 22.4,
+    },
+    promptCard: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        padding: 14,
+        backgroundColor: colors.surface3,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 16,
+    },
+    promptHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    promptLabel: {
+        fontSize: 10,
+        fontWeight: '500',
+        color: colors.text3,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    copyBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    copyText: {
+        fontSize: 11,
+        color: colors.accent2,
+    },
+    copyTextCopied: {
+        color: colors.green,
+    },
+    promptText: {
+        fontSize: 12,
+        color: colors.text2,
+        lineHeight: 18,
+    },
+    navButtons: {
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        gap: 10,
+    },
+    prevBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 14,
+        alignItems: 'center',
+    },
+    prevBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.text2,
+    },
+    nextBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        backgroundColor: colors.accent,
+        borderRadius: 14,
+    },
+    nextBtnComplete: {
+        backgroundColor: colors.green,
+    },
+    nextBtnText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    sourcesSection: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+    },
+    sourcesList: {
+        gap: 12,
+    },
+    sourceItem: {
+        flexDirection: 'row',
+        gap: 12,
+        padding: 12,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 16,
+        alignItems: 'center',
+    },
+    sourceThumbnail: {
+        width: 80,
+        height: 45,
+        borderRadius: 8,
+        backgroundColor: colors.surface3,
+        flexShrink: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sourceThumbnailOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
+    },
+    sourceIconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        backgroundColor: colors.surface3,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    sourceInfo: {
+        flex: 1,
+        minWidth: 0,
+    },
+    sourceTitle: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.text1,
+    },
+    sourceType: {
+        fontSize: 11,
+        color: colors.text3,
+        marginTop: 2,
+    },
+});

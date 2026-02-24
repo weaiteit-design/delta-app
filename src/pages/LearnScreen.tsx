@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
 import { SectionLabel } from '../shared/ui/SectionLabel';
 import { LessonCard } from '../features/LessonCard';
 import { LessonData } from '../shared/types/types';
 import { deltaService } from '../shared/api/deltaService';
+import { colors, radius } from '../shared/platform/theme';
 
 interface LearnScreenProps {
     onStartLesson: (lesson: LessonData) => void;
 }
 
 const CATEGORIES = [
-    { name: 'AI Writing', emoji: '✍️', done: 3, total: 8, color: 'var(--accent-2)' },
-    { name: 'AI Images', emoji: '🎨', done: 1, total: 6, color: 'var(--pink)' },
-    { name: 'Coding Copilots', emoji: '💻', done: 5, total: 10, color: 'var(--orange)' },
-    { name: 'AI Research', emoji: '🔬', done: 2, total: 6, color: 'var(--blue)' },
-    { name: 'Video & Audio', emoji: '🎬', done: 0, total: 5, color: 'var(--red)' },
-    { name: 'Career & Biz', emoji: '💼', done: 1, total: 4, color: 'var(--green)' },
+    { name: 'AI Writing', emoji: '✍️', done: 3, total: 8, color: colors.accent2 },
+    { name: 'AI Images', emoji: '🎨', done: 1, total: 6, color: colors.pink },
+    { name: 'Coding Copilots', emoji: '💻', done: 5, total: 10, color: colors.orange },
+    { name: 'AI Research', emoji: '🔬', done: 2, total: 6, color: colors.blue },
+    { name: 'Video & Audio', emoji: '🎬', done: 0, total: 5, color: colors.red },
+    { name: 'Career & Biz', emoji: '💼', done: 1, total: 4, color: colors.green },
 ];
 
 const LEARNING_PATH = {
@@ -35,7 +43,6 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
 
     const path = LEARNING_PATH;
 
-    // Load dynamic "Quick Lessons" on mount
     useEffect(() => {
         let mounted = true;
         async function loadQuickLessons() {
@@ -66,12 +73,10 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
         const isCurrentlySelected = selectedCategory === categoryName;
         setSelectedCategory(isCurrentlySelected ? null : categoryName);
 
-        // If we are selecting a new category and it hasn't been loaded yet
         if (!isCurrentlySelected && !categoryLessons[categoryName] && !loadingCategory[categoryName]) {
             setLoadingCategory(prev => ({ ...prev, [categoryName]: true }));
 
             try {
-                // Generate a lesson dynamically for this category
                 const lesson1 = await deltaService.generateDynamicLesson(`Advanced Techniques in ${categoryName}`, categoryName);
 
                 if (lesson1) {
@@ -88,168 +93,107 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
         }
     };
 
+    const pathLesson: LessonData = {
+        id: 'path-prompting',
+        title: 'Effective AI Prompting',
+        category: 'AI Writing',
+        duration: '3 min',
+        xp: 50,
+        difficulty: 2,
+        preview: 'Learn the prompting techniques that separate beginners from power users.',
+        pill: 'LEARNING PATH',
+        steps: [
+            'The #1 mistake: being too vague. "Write me an email" vs "Write a follow-up email to a client who attended our demo yesterday. Tone: warm but professional. Length: under 100 words."',
+            'Use role-based prompting: "You are a senior data analyst at a Fortune 500 company..." — this dramatically improves output quality.',
+            'Chain-of-thought: ask the AI to "think step by step" before giving its answer. This catches errors and improves reasoning.',
+            'Few-shot learning: provide 2-3 examples of the output you want. The AI pattern-matches better than following instructions alone.',
+            'Iteration is key: never accept the first output. Ask "can you make this more concise?" or "rewrite this with more specific examples".',
+        ],
+        practiceTask: 'Take a prompt you used recently and apply all 5 techniques to create a dramatically improved version',
+        taskPrompt: 'You are a senior analyst. Think step-by-step to address the following problem. Requirements: 1. Keep it structured. 2. Use bullet points.',
+    };
+
     return (
-        <div className="screen-container">
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Status bar */}
-            <div style={{ height: 44 }} />
+            <View style={{ height: 44 }} />
 
             {/* Header */}
-            <div style={{ padding: '8px 20px 20px' }}>
-                <h1 style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 24,
-                    fontWeight: 800,
-                    color: 'var(--text-1)',
-                    margin: 0,
-                }}>Learn</h1>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: 'var(--text-3)',
-                    marginTop: 4,
-                }}>Your personalised AI learning path</p>
-            </div>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Learn</Text>
+                <Text style={styles.headerSubtitle}>Your personalised AI learning path</Text>
+            </View>
 
             {/* Learning Path Card */}
-            <div
-                onClick={() => {
-                    const pathLesson: LessonData = {
-                        id: 'path-prompting',
-                        title: 'Effective AI Prompting',
-                        category: 'AI Writing',
-                        duration: '3 min',
-                        xp: 50,
-                        difficulty: 2,
-                        preview: 'Learn the prompting techniques that separate beginners from power users.',
-                        pill: 'LEARNING PATH',
-                        steps: [
-                            'The #1 mistake: being too vague. "Write me an email" vs "Write a follow-up email to a client who attended our demo yesterday. Tone: warm but professional. Length: under 100 words."',
-                            'Use role-based prompting: "You are a senior data analyst at a Fortune 500 company..." — this dramatically improves output quality.',
-                            'Chain-of-thought: ask the AI to "think step by step" before giving its answer. This catches errors and improves reasoning.',
-                            'Few-shot learning: provide 2-3 examples of the output you want. The AI pattern-matches better than following instructions alone.',
-                            'Iteration is key: never accept the first output. Ask "can you make this more concise?" or "rewrite this with more specific examples".',
-                        ],
-                        practiceTask: 'Take a prompt you used recently and apply all 5 techniques to create a dramatically improved version',
-                        taskPrompt: 'You are a senior analyst. Think step-by-step to address the following problem. Requirements: 1. Keep it structured. 2. Use bullet points.',
-                    };
-                    onStartLesson(pathLesson);
-                }}
-                style={{
-                    margin: '0 20px 24px',
-                    borderRadius: 28,
-                    background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.08) 100%)',
-                    border: '1px solid rgba(99,102,241,0.3)',
-                    padding: '18px 20px',
-                    cursor: 'pointer',
-                    transition: 'transform 0.15s ease',
-                }}
+            <TouchableOpacity
+                onPress={() => onStartLesson(pathLesson)}
+                style={styles.pathCard}
+                activeOpacity={0.85}
             >
-                <span style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.12em',
-                    color: 'var(--accent-2)',
-                }}>YOUR NEXT STEPS</span>
-                <h2 style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: 'var(--text-1)',
-                    margin: '8px 0 12px',
-                }}>{path.title}</h2>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                <Text style={styles.pathCardLabel}>YOUR NEXT STEPS</Text>
+                <Text style={styles.pathCardTitle}>{path.title}</Text>
+                <View style={styles.progressBarRow}>
                     {path.steps.map((_, i) => (
-                        <div key={i} style={{
-                            flex: 1,
-                            height: 4,
-                            borderRadius: 100,
-                            background: i < path.currentStep
-                                ? 'var(--accent)'
-                                : i === path.currentStep
-                                    ? 'var(--accent-bg)'
-                                    : 'var(--surface-3)',
-                            transition: 'background 0.3s ease',
-                        }} />
+                        <View
+                            key={i}
+                            style={[
+                                styles.progressSegment,
+                                {
+                                    backgroundColor: i < path.currentStep
+                                        ? colors.accent
+                                        : i === path.currentStep
+                                            ? colors.accentBg
+                                            : colors.surface3,
+                                },
+                            ]}
+                        />
                     ))}
-                </div>
-                <span style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 12,
-                    color: 'var(--text-2)',
-                }}>
+                </View>
+                <Text style={styles.pathCardMeta}>
                     Lesson {path.currentStep} of {path.totalSteps} · {path.currentLesson}
-                </span>
-            </div>
+                </Text>
+            </TouchableOpacity>
 
             {/* Categories */}
             <SectionLabel>📚 CATEGORIES</SectionLabel>
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 12,
-                padding: '0 20px',
-                marginBottom: 16,
-            }}>
+            <View style={styles.categoriesGrid}>
                 {CATEGORIES.map((cat) => (
-                    <div key={cat.name}
-                        onClick={() => handleCategoryClick(cat.name)}
-                        style={{
-                            background: selectedCategory === cat.name ? 'rgba(99,102,241,0.08)' : 'var(--surface-2)',
-                            border: `1px solid ${selectedCategory === cat.name ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
-                            borderRadius: 20,
-                            padding: '16px 14px',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                        }}
+                    <TouchableOpacity
+                        key={cat.name}
+                        onPress={() => handleCategoryClick(cat.name)}
+                        style={[
+                            styles.categoryCard,
+                            selectedCategory === cat.name && styles.categoryCardSelected,
+                        ]}
+                        activeOpacity={0.8}
                     >
-                        <div style={{
-                            position: 'absolute',
-                            bottom: -20, right: -20,
-                            width: 80, height: 80,
-                            background: `radial-gradient(circle, ${cat.color}22 0%, transparent 70%)`,
-                            borderRadius: '50%',
-                        }} />
-                        <span style={{ fontSize: 24 }}>{cat.emoji}</span>
-                        <div style={{
-                            fontFamily: "'Syne', sans-serif",
-                            fontSize: 14, fontWeight: 700,
-                            color: 'var(--text-1)', marginTop: 8,
-                        }}>{cat.name}</div>
-                        <div style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 11, color: 'var(--text-3)',
-                            marginTop: 2, marginBottom: 8,
-                        }}>{cat.done}/{cat.total} done</div>
-                        <div style={{
-                            height: 3, width: '100%',
-                            background: 'var(--surface-3)',
-                            borderRadius: 100, overflow: 'hidden',
-                        }}>
-                            <div style={{
-                                height: '100%',
-                                width: `${(cat.done / cat.total) * 100}%`,
-                                background: cat.color,
-                                borderRadius: 100,
-                                transition: 'width 0.6s ease',
-                            }} />
-                        </div>
-                    </div>
+                        <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                        <Text style={styles.categoryName}>{cat.name}</Text>
+                        <Text style={styles.categoryProgress}>{cat.done}/{cat.total} done</Text>
+                        <View style={styles.categoryProgressBar}>
+                            <View
+                                style={[
+                                    styles.categoryProgressFill,
+                                    {
+                                        width: `${(cat.done / cat.total) * 100}%` as any,
+                                        backgroundColor: cat.color,
+                                    },
+                                ]}
+                            />
+                        </View>
+                    </TouchableOpacity>
                 ))}
-            </div>
+            </View>
 
             {/* Category Lessons (expandable) */}
             {selectedCategory && (
-                <div style={{ padding: '0 0 12px', animation: 'fadeInUp 0.3s ease' }}>
+                <View style={styles.categoryLessonsSection}>
                     <SectionLabel>📖 {selectedCategory.toUpperCase()} LESSONS</SectionLabel>
 
                     {loadingCategory[selectedCategory] ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px' }}>
-                            <div style={{ height: 120, background: 'var(--surface-2)', borderRadius: 24, animation: 'pulse 1.5s infinite' }} />
-                        </div>
+                        <View style={styles.skeletonContainer}>
+                            <View style={styles.skeletonCard} />
+                        </View>
                     ) : categoryLessons[selectedCategory]?.length > 0 ? (
                         categoryLessons[selectedCategory].map((lesson) => (
                             <LessonCard
@@ -259,21 +203,19 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
                             />
                         ))
                     ) : (
-                        <div style={{ padding: '10px 20px', color: 'var(--text-3)', fontFamily: "'DM Sans', sans-serif", fontSize: 13 }}>
-                            No lessons generated yet.
-                        </div>
+                        <Text style={styles.emptyText}>No lessons generated yet.</Text>
                     )}
-                </div>
+                </View>
             )}
 
             {/* Quick Lessons */}
             <SectionLabel>⚡ QUICK LESSONS — 2 MIN OR LESS</SectionLabel>
 
             {loadingQuick ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px' }}>
-                    <div style={{ height: 120, background: 'var(--surface-2)', borderRadius: 24, animation: 'pulse 1.5s infinite' }} />
-                    <div style={{ height: 120, background: 'var(--surface-2)', borderRadius: 24, animation: 'pulse 1.5s infinite', animationDelay: '0.2s' }} />
-                </div>
+                <View style={styles.skeletonContainer}>
+                    <View style={styles.skeletonCard} />
+                    <View style={styles.skeletonCard} />
+                </View>
             ) : quickLessons.length > 0 ? (
                 quickLessons.map((lesson) => (
                     <LessonCard
@@ -283,12 +225,136 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
                     />
                 ))
             ) : (
-                <div style={{ padding: '10px 20px', color: 'var(--text-3)', fontFamily: "'DM Sans', sans-serif", fontSize: 13 }}>
-                    Could not load quick lessons. Please try again.
-                </div>
+                <Text style={styles.emptyText}>Could not load quick lessons. Please try again.</Text>
             )}
 
-            <div style={{ height: 20 }} />
-        </div>
+            <View style={{ height: 20 }} />
+        </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 20,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: colors.text1,
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: colors.text3,
+        marginTop: 4,
+    },
+    pathCard: {
+        marginHorizontal: 20,
+        marginBottom: 24,
+        borderRadius: 28,
+        backgroundColor: colors.accentBg,
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.3)',
+        padding: 18,
+        paddingHorizontal: 20,
+    },
+    pathCardLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        color: colors.accent2,
+    },
+    pathCardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.text1,
+        marginTop: 8,
+        marginBottom: 12,
+    },
+    progressBarRow: {
+        flexDirection: 'row',
+        gap: 6,
+        marginBottom: 10,
+    },
+    progressSegment: {
+        flex: 1,
+        height: 4,
+        borderRadius: 100,
+    },
+    pathCardMeta: {
+        fontSize: 12,
+        color: colors.text2,
+    },
+    categoriesGrid: {
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 16,
+    },
+    categoryCard: {
+        width: '48%',
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 20,
+        padding: 16,
+        paddingHorizontal: 14,
+        overflow: 'hidden',
+    },
+    categoryCardSelected: {
+        backgroundColor: colors.accentBg,
+        borderColor: 'rgba(99,102,241,0.3)',
+    },
+    categoryEmoji: {
+        fontSize: 24,
+    },
+    categoryName: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: colors.text1,
+        marginTop: 8,
+    },
+    categoryProgress: {
+        fontSize: 11,
+        color: colors.text3,
+        marginTop: 2,
+        marginBottom: 8,
+    },
+    categoryProgressBar: {
+        height: 3,
+        width: '100%',
+        backgroundColor: colors.surface3,
+        borderRadius: 100,
+        overflow: 'hidden',
+    },
+    categoryProgressFill: {
+        height: '100%',
+        borderRadius: 100,
+    },
+    categoryLessonsSection: {
+        paddingBottom: 12,
+    },
+    skeletonContainer: {
+        gap: 12,
+        paddingHorizontal: 20,
+    },
+    skeletonCard: {
+        height: 120,
+        backgroundColor: colors.surface2,
+        borderRadius: 24,
+        opacity: 0.7,
+    },
+    emptyText: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        color: colors.text3,
+        fontSize: 13,
+    },
+});
