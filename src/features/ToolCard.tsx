@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Bookmark } from 'lucide-react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Bookmark } from 'lucide-react-native';
 import { storageService } from '../entities/user/storageService';
 import { LogoContainer } from '../shared/ui/LogoContainer';
-
 import { ToolPricing } from '../shared/types/types';
+import { colors, radius } from '../shared/platform/theme';
 
 interface ToolCardTool {
     id: string;
@@ -21,145 +22,145 @@ interface ToolCardProps {
     onClick?: () => void;
 }
 
-const categoryGradients: Record<string, string> = {
-    'Writing': 'linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%)',
-    'General': 'linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%)',
-    'Images': 'linear-gradient(90deg, var(--red) 0%, #c084fc 100%)',
-    'Coding': 'linear-gradient(90deg, var(--yellow) 0%, var(--orange) 100%)',
-    'Audio': 'linear-gradient(90deg, var(--red) 0%, var(--orange) 100%)',
-    'Research': 'linear-gradient(90deg, var(--blue) 0%, var(--accent) 100%)',
+const categoryGradientColors: Record<string, string> = {
+    'Writing':  colors.accent,
+    'General':  colors.accent,
+    'Images':   colors.red,
+    'Coding':   colors.yellow,
+    'Audio':    colors.red,
+    'Research': colors.blue,
 };
+
+function pricingColor(model: string): string {
+    if (model === 'free') return colors.green;
+    if (model === 'paid') return colors.red;
+    return colors.yellow;
+}
+
+function pricingBg(model: string): string {
+    if (model === 'free') return colors.greenBg;
+    if (model === 'paid') return 'rgba(248,113,113,0.1)';
+    return colors.yellowBg;
+}
 
 export function ToolCard({ tool, onClick }: ToolCardProps) {
     const [saved, setSaved] = useState(() => storageService.isToolSaved(tool.id));
-    return (
-        <div
-            onClick={onClick}
-            style={{
-                width: 140,
-                flexShrink: 0,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 20,
-                padding: '14px 12px',
-                position: 'relative',
-                borderTop: 'none',
-                cursor: 'pointer',
-                transition: 'transform 0.15s ease',
-            }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
-            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-            {/* Colour bar top */}
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 2,
-                background: categoryGradients[tool.category] || categoryGradients['General'],
-                borderRadius: '20px 20px 0 0',
-            }} />
+    const barColor = categoryGradientColors[tool.category] || colors.accent;
 
-            {/* Match badge */}
-            <div style={{
-                position: 'absolute',
-                top: 10,
-                right: 10,
-                display: 'flex',
-                gap: 6,
-                alignItems: 'center',
-            }}>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setSaved(storageService.toggleToolSave(tool.id));
-                    }}
-                    style={{
-                        background: 'rgba(0,0,0,0.4)',
-                        backdropFilter: 'blur(4px)',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: 24,
-                        height: 24,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        padding: 0,
-                    }}
+    return (
+        <TouchableOpacity style={styles.card} onPress={onClick} activeOpacity={0.85}>
+            {/* Colour bar */}
+            <View style={[styles.colorBar, { backgroundColor: barColor }]} />
+
+            {/* Bookmark + match badge (top-right) */}
+            <View style={styles.topRight}>
+                <TouchableOpacity
+                    onPress={() => setSaved(storageService.toggleToolSave(tool.id))}
+                    style={styles.bookmarkBtn}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                    <Bookmark size={12} fill={saved ? 'var(--yellow)' : 'none'} color={saved ? 'var(--yellow)' : '#fff'} />
-                </button>
-                <div style={{
-                    background: 'var(--green-bg)',
-                    borderRadius: 20,
-                    padding: '2px 6px',
-                }}>
-                    <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: 'var(--green)',
-                    }}>{tool.matchScore}%</span>
-                </div>
-            </div>
+                    <Bookmark size={12} fill={saved ? colors.yellow : 'none'} color={saved ? colors.yellow : '#fff'} />
+                </TouchableOpacity>
+                <View style={styles.matchBadge}>
+                    <Text style={styles.matchText}>{tool.matchScore}%</Text>
+                </View>
+            </View>
 
             {/* Logo */}
-            <LogoContainer
-                domain={tool.domain}
-                name={tool.name}
-                size={36}
-                category={tool.category}
-                logoUrl={tool.logoUrl}
-            />
+            <LogoContainer domain={tool.domain} name={tool.name} size={36} category={tool.category} logoUrl={tool.logoUrl} />
 
             {/* Name */}
-            <div style={{
-                fontFamily: "'Syne', sans-serif",
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--text-1)',
-                marginTop: 10,
-                marginBottom: 4,
-            }}>
-                {tool.name}
-            </div>
+            <Text style={styles.name}>{tool.name}</Text>
 
-            {/* Tag + Pricing */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <div style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 10,
-                    color: 'var(--text-3)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    flex: 1,
-                }}>
-                    {tool.tag}
-                </div>
+            {/* Tag + pricing */}
+            <View style={styles.tagRow}>
+                <Text style={styles.tag} numberOfLines={1}>{tool.tag}</Text>
                 {tool.pricing && (
-                    <div style={{
-                        padding: '1px 4px',
-                        borderRadius: 4,
-                        background: tool.pricing.model === 'free' ? 'rgba(52,211,153,0.1)' : tool.pricing.model === 'paid' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)',
-                        color: tool.pricing.model === 'free' ? 'var(--green)' : tool.pricing.model === 'paid' ? 'var(--red)' : 'var(--yellow)',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 8,
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        marginLeft: 4,
-                    }}>
-                        {tool.pricing.model}
-                    </div>
+                    <View style={[styles.pricingBadge, { backgroundColor: pricingBg(tool.pricing.model) }]}>
+                        <Text style={[styles.pricingText, { color: pricingColor(tool.pricing.model) }]}>
+                            {tool.pricing.model}
+                        </Text>
+                    </View>
                 )}
-            </div>
-        </div>
+            </View>
+        </TouchableOpacity>
     );
 }
+
+const styles = StyleSheet.create({
+    card: {
+        width: 140,
+        flexShrink: 0,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.xl,
+        padding: 14,
+        paddingTop: 16,
+        position: 'relative',
+    },
+    colorBar: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 2,
+        borderTopLeftRadius: radius.xl,
+        borderTopRightRadius: radius.xl,
+    },
+    topRight: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    bookmarkBtn: {
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    matchBadge: {
+        backgroundColor: colors.greenBg,
+        borderRadius: 20,
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+    },
+    matchText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: colors.green,
+    },
+    name: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: colors.text1,
+        marginTop: 10,
+        marginBottom: 4,
+    },
+    tagRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    tag: {
+        fontSize: 10,
+        color: colors.text3,
+        flex: 1,
+    },
+    pricingBadge: {
+        paddingVertical: 1,
+        paddingHorizontal: 4,
+        borderRadius: 4,
+        marginLeft: 4,
+    },
+    pricingText: {
+        fontSize: 8,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+});
