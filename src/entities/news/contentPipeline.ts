@@ -17,6 +17,7 @@ import {
 import { storageService, UserProfile } from '../user/storageService';
 import { deltaService } from '../../shared/api/deltaService';
 import { batchUpsertContentCache, CachedContentRow } from '../../shared/api/supabaseClient';
+import platformStorage from '../../shared/platform/storage';
 import { fetchNewsApiArticles } from './sources/newsApiSource';
 import { fetchRedditPosts } from './sources/redditSource';
 import { fetchHackerNewsPosts } from './sources/hackerNewsSource';
@@ -269,8 +270,8 @@ class ContentPipeline {
         if (this._initialized) return;
         this._initialized = true;
         // FORCE CLEAR old caches to ensure users get the new TAAFT-style actionable data
-        localStorage.removeItem('delta_pipeline_updates');
-        localStorage.removeItem('delta_classified_items');
+        platformStorage.removeItem('delta_pipeline_updates');
+        platformStorage.removeItem('delta_classified_items');
         evictStaleCaches();
     }
 

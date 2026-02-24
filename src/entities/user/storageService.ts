@@ -1,8 +1,9 @@
 // ============================================
-// DELTA — Storage Service (localStorage + Supabase Sync)
+// DELTA — Storage Service (platformStorage + Supabase Sync)
 // ============================================
 
 import { supabase, IS_CONFIGURED } from '../../shared/api/supabaseClient';
+import platformStorage from '../../shared/platform/storage';
 
 export interface UserProfile {
     id: string;
@@ -70,7 +71,7 @@ class StorageService {
     getUser(): UserProfile {
         const def = this.getDefaultUser();
         try {
-            const raw = localStorage.getItem(KEYS.USER);
+            const raw = platformStorage.getItem(KEYS.USER);
             if (raw) {
                 const parsed = JSON.parse(raw);
                 return {
@@ -89,7 +90,7 @@ class StorageService {
     }
 
     saveUser(user: UserProfile): void {
-        localStorage.setItem(KEYS.USER, JSON.stringify(user));
+        platformStorage.setItem(KEYS.USER, JSON.stringify(user));
         this.syncToCloud(user);
     }
 
@@ -202,10 +203,9 @@ class StorageService {
         if (!IS_CONFIGURED) return;
         supabase.auth.getSession().then(({ data: { session } }: any) => {
             if (session && session.user) {
-                // Overwrite cloud with local state
-                const row = { ...user, id: session.user.id }; // Define 'row' here
+                const row = { ...user, id: session.user.id };
                 supabase
-                    .from('user_profiles') // Changed from 'users' to 'user_profiles'
+                    .from('user_profiles')
                     .upsert(row)
                     .then(({ error }: any) => { if (error) console.warn('[Supabase] Sync:', error); });
             }
@@ -220,7 +220,7 @@ class StorageService {
         if (!session?.user) return null;
 
         const { data, error } = await supabase
-            .from('user_profiles') // Fixed inconsistency from 'users'
+            .from('user_profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
@@ -236,20 +236,18 @@ class StorageService {
 
         // Merge cloud data over local
         const mergedUser = { ...this.getUser(), ...data, id: session.user.id };
-
-        // Save to local storage
-        localStorage.setItem(KEYS.USER, JSON.stringify(mergedUser));
+        platformStorage.setItem(KEYS.USER, JSON.stringify(mergedUser));
         return mergedUser;
     }
 
     // ---- Cache helpers ----
     getCache<T>(key: string, maxAgeMs: number = 60 * 60 * 1000): T | null {
         try {
-            const raw = localStorage.getItem(key);
+            const raw = platformStorage.getItem(key);
             if (!raw) return null;
             const { data, timestamp } = JSON.parse(raw);
             if (Date.now() - timestamp > maxAgeMs) {
-                localStorage.removeItem(key);
+                platformStorage.removeItem(key);
                 return null;
             }
             return data as T;
@@ -260,12 +258,12 @@ class StorageService {
 
     setCache(key: string, data: unknown): void {
         try {
-            localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+            platformStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
         } catch (e) {
-            // localStorage full — evict old caches
+            // Storage full — evict old caches
             this.evictOldCaches();
             try {
-                localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+                platformStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
             } catch { }
         }
     }
@@ -274,11 +272,11 @@ class StorageService {
         const keysToCheck = Object.values(KEYS);
         for (const key of keysToCheck) {
             try {
-                const raw = localStorage.getItem(key);
+                const raw = platformStorage.getItem(key);
                 if (raw) {
                     const { timestamp } = JSON.parse(raw);
                     if (Date.now() - timestamp > 7 * 24 * 60 * 60 * 1000) {
-                        localStorage.removeItem(key);
+                        platformStorage.removeItem(key);
                     }
                 }
             } catch { }
