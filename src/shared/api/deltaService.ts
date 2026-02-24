@@ -9,8 +9,8 @@ import { fetchCachedContent, upsertContentCache, CachedContentRow } from './supa
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || '';
-const GEMINI_MODEL = 'gemini-1.5-flash'; // Main model for reasoning and chat
-const GEMINI_LITE_MODEL = 'gemini-1.5-flash-8b'; // High-volume model for lesson generation
+const GEMINI_MODEL = 'gemini-2.0-flash'; // Main model for reasoning and chat
+const GEMINI_LITE_MODEL = 'gemini-2.0-flash-lite'; // High-volume model for lesson generation
 
 // ---- Gemini direct REST call ----
 export async function geminiCall(prompt: string, jsonMode = false): Promise<string | null> {

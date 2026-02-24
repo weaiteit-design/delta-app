@@ -79,8 +79,23 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
     // Format day of week
     const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-    // Daily Hack
+    // Daily Hack — find best trick/workflow, or use a static fallback so the section always renders
     const dailyHack = [...updates].find(u => u.type === 'trick' || u.type === 'workflow');
+    const fallbackHack: VerifiedUpdate = {
+        id: 'daily-hack-fallback',
+        title: 'The "Before & After" Prompt Technique',
+        shortSummary: 'When asking AI to improve something, always show it the "before" version first. Paste your original text, then say: "Rewrite this to be more concise and professional." The AI produces dramatically better results when it can see what it\'s improving.',
+        type: 'trick',
+        tag: 'AI TRICK',
+        source: 'Delta AI',
+        sourceDomain: 'delta.app',
+        timeAgo: 'Today',
+        fomoScore: 9,
+        emoji: '💡',
+        publishedAt: new Date().toISOString(),
+        actionability: 10,
+    };
+    const displayedHack = dailyHack || (!loading ? fallbackHack : null);
 
     return (
         <div className="screen-container">
@@ -151,58 +166,67 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                 <StreakBar />
             </div>
 
-            {/* Daily AI Hack */}
-            {dailyHack && (
-                <>
-                    <SectionLabel>💡 DAILY AI HACK</SectionLabel>
-                    <div style={{ padding: '0 20px', marginBottom: 28 }}>
-                        <div
-                            onClick={() => onSelectUpdate(dailyHack)}
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(251,146,60,0.1), rgba(251,146,60,0.02))',
-                                border: '1px solid rgba(251,146,60,0.3)',
-                                borderRadius: 20,
-                                padding: '16px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                <span style={{
-                                    fontFamily: "'Syne', sans-serif",
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    letterSpacing: '0.06em',
-                                    color: 'var(--orange)',
-                                }}>{dailyHack.tag}</span>
-                                <span style={{
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: 10,
-                                    color: 'var(--text-3)',
-                                }}>• {dailyHack.timeAgo}</span>
-                            </div>
-                            <h3 style={{
-                                fontFamily: "'Syne', sans-serif",
-                                fontSize: 16,
-                                fontWeight: 700,
-                                color: 'var(--text-1)',
-                                margin: '0 0 8px',
-                                lineHeight: 1.3,
-                            }}>{dailyHack.title}</h3>
-                            <p style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: 13,
-                                color: 'var(--text-2)',
-                                lineHeight: 1.5,
-                                margin: 0,
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                            }}>{dailyHack.shortSummary}</p>
-                        </div>
+            {/* Daily AI Hack — always shown: loading skeleton → live hack → static fallback */}
+            <SectionLabel>💡 DAILY AI HACK</SectionLabel>
+            <div style={{ padding: '0 20px', marginBottom: 28 }}>
+                {loading ? (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(251,146,60,0.06), rgba(251,146,60,0.02))',
+                        border: '1px solid rgba(251,146,60,0.15)',
+                        borderRadius: 20,
+                        padding: '16px',
+                    }}>
+                        <div className="skeleton" style={{ width: '25%', height: 10, borderRadius: 4, marginBottom: 10 }} />
+                        <div className="skeleton" style={{ width: '85%', height: 16, borderRadius: 4, marginBottom: 8 }} />
+                        <div className="skeleton" style={{ width: '70%', height: 12, borderRadius: 4 }} />
                     </div>
-                </>
-            )}
+                ) : displayedHack ? (
+                    <div
+                        onClick={() => onSelectUpdate(displayedHack)}
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(251,146,60,0.1), rgba(251,146,60,0.02))',
+                            border: '1px solid rgba(251,146,60,0.3)',
+                            borderRadius: 20,
+                            padding: '16px',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <span style={{
+                                fontFamily: "'Syne', sans-serif",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: '0.06em',
+                                color: 'var(--orange)',
+                            }}>{displayedHack.tag}</span>
+                            <span style={{
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: 10,
+                                color: 'var(--text-3)',
+                            }}>• {displayedHack.timeAgo}</span>
+                        </div>
+                        <h3 style={{
+                            fontFamily: "'Syne', sans-serif",
+                            fontSize: 16,
+                            fontWeight: 700,
+                            color: 'var(--text-1)',
+                            margin: '0 0 8px',
+                            lineHeight: 1.3,
+                        }}>{displayedHack.title}</h3>
+                        <p style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: 13,
+                            color: 'var(--text-2)',
+                            lineHeight: 1.5,
+                            margin: 0,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                        }}>{displayedHack.shortSummary}</p>
+                    </div>
+                ) : null}
+            </div>
 
             {/* Continue Learning */}
             <SectionLabel>📖 CONTINUE LEARNING</SectionLabel>
@@ -257,6 +281,23 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                             <div className="skeleton" style={{ width: '40%', height: 10, borderRadius: 4 }} />
                         </div>
                     ))
+                ) : topNews.length === 0 ? (
+                    <div style={{
+                        padding: '24px 16px',
+                        textAlign: 'center',
+                        background: 'var(--surface-2)',
+                        borderRadius: 20,
+                        border: '1px solid var(--border)',
+                    }}>
+                        <span style={{ fontSize: 28, display: 'block', marginBottom: 8 }}>📡</span>
+                        <p style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: 12,
+                            color: 'var(--text-3)',
+                            margin: 0,
+                            lineHeight: 1.5,
+                        }}>No live updates available right now. Check back shortly!</p>
+                    </div>
                 ) : (
                     topNews.map((item) => (
                         <NewsCard

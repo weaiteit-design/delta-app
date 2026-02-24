@@ -331,6 +331,34 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                             <div className="skeleton" style={{ width: '40%', height: 10, borderRadius: 4 }} />
                         </div>
                     ))
+                ) : filtered.length === 0 ? (
+                    <div style={{
+                        padding: '32px 20px',
+                        textAlign: 'center',
+                        background: 'var(--surface-2)',
+                        borderRadius: 20,
+                        border: '1px solid var(--border)',
+                    }}>
+                        <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>📡</span>
+                        <p style={{
+                            fontFamily: "'Syne', sans-serif",
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color: 'var(--text-1)',
+                            margin: '0 0 6px',
+                        }}>No updates yet</p>
+                        <p style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: 12,
+                            color: 'var(--text-3)',
+                            lineHeight: 1.5,
+                            margin: 0,
+                        }}>
+                            {filter !== '⚡ For You' && filter !== 'All'
+                                ? `No "${filter.replace(/[^\w\s]/g, '').trim()}" updates found. Try a different filter.`
+                                : 'Updates will appear here once your news sources are configured. Check back soon!'}
+                        </p>
+                    </div>
                 ) : filtered.map((item) => (
                     <NewsCard
                         key={item.id}

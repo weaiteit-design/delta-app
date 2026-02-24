@@ -17,6 +17,7 @@ import { AuthScreen } from '../pages/AuthScreen';
 import { supabase } from '../shared/api/supabaseClient';
 import { storageService } from '../entities/user/storageService';
 import { ToolData, VerifiedUpdate, LessonData } from '../shared/types/types';
+import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
 // Navigation overlay types
 type OverlayScreen =
@@ -162,7 +163,9 @@ export default function App() {
 
     return (
         <div className="phone-frame">
-            {renderScreen()}
+            <ErrorBoundary fallbackMessage="This screen encountered an error. Tap below to try again.">
+                {renderScreen()}
+            </ErrorBoundary>
             {overlay.type === 'none' && (
                 <BottomNav
                     active={activeTab}

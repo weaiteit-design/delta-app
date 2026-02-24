@@ -35,14 +35,24 @@ export function ChatScreen({ onStartLesson, onSelectTool }: ChatScreenProps) {
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const chatInitialized = useRef(false);
+    const lastUserKey = useRef('');
 
+    // Re-initialise chat when user profile changes (e.g., after sign-in or role change)
     useEffect(() => {
-        if (!chatInitialized.current) {
+        const userKey = `${user.name}|${user.role}|${user.aiLevel}`;
+        if (userKey !== lastUserKey.current) {
             deltaService.initChat();
-            chatInitialized.current = true;
+            lastUserKey.current = userKey;
+            // Reset messages to fresh welcome if user context changed
+            if (lastUserKey.current !== '' && messages.length > 1) {
+                setMessages([{
+                    id: 'welcome',
+                    role: 'ai',
+                    text: `Hey ${user.name}! 👋 I'm Delta, your AI learning companion. Ask me anything about AI tools, the latest news, or what to learn next!`,
+                }]);
+            }
         }
-    }, []);
+    }, [user.name, user.role, user.aiLevel]);
 
     useEffect(() => {
         if (scrollRef.current) {
