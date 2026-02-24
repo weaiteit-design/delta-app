@@ -1,0 +1,208 @@
+/* ========================================
+   DELTA AI — Design System
+   ======================================== */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+/* ---- Design Tokens ---- */
+:root {
+    /* Backgrounds */
+    --bg: #0A0A0B;
+    --surface: #111114;
+    --surface-2: #18181C;
+    --surface-3: #1E1E24;
+
+    /* Borders */
+    --border: rgba(255, 255, 255, 0.07);
+    --border-2: rgba(255, 255, 255, 0.12);
+
+    /* Accent */
+    --accent: #6366F1;
+    --accent-2: #818CF8;
+    --accent-bg: rgba(99, 102, 241, 0.12);
+
+    /* Text */
+    --text-1: #F0F0F2;
+    --text-2: #A0A0B0;
+    --text-3: #606070;
+
+    /* Semantic */
+    --green: #34D399;
+    --green-bg: rgba(52, 211, 153, 0.15);
+    --orange: #FB923C;
+    --orange-bg: rgba(251, 146, 60, 0.15);
+    --red: #F87171;
+    --red-bg: rgba(248, 113, 113, 0.15);
+    --blue: #60A5FA;
+    --blue-bg: rgba(96, 165, 250, 0.15);
+    --yellow: #FBBF24;
+    --yellow-bg: rgba(251, 191, 36, 0.15);
+    --pink: #F472B6;
+    --pink-bg: rgba(244, 114, 182, 0.12);
+
+    /* Radius */
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-xl: 28px;
+    --r-full: 9999px;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 20px;
+    --space-xl: 28px;
+}
+
+/* ---- Reset & Globals ---- */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #050506;
+    color: var(--text-1);
+    overflow: hidden;
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* ---- Font Utilities ---- */
+.font-display {
+    font-family: 'Syne', sans-serif;
+}
+
+.font-body {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.font-mono {
+    font-family: 'DM Mono', monospace;
+}
+
+/* ---- Animations ---- */
+@keyframes pulse-live {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.4;
+        transform: scale(0.8);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-pulse-live {
+    animation: pulse-live 1.5s ease-in-out infinite;
+}
+
+.skeleton {
+    background: linear-gradient(90deg, var(--surface-3) 0%, var(--surface-2) 40%, var(--surface-3) 80%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-shimmer {
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ---- Phone Frame ---- */
+.phone-frame {
+    width: 100%;
+    max-width: 430px;
+    height: 100dvh;
+    max-height: 932px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 500px) {
+    .phone-frame {
+        border-radius: 40px;
+        border: 1px solid var(--border);
+        box-shadow: 0 0 80px rgba(99, 102, 241, 0.06), 0 0 200px rgba(0, 0, 0, 0.8);
+        height: min(932px, 95dvh);
+    }
+}
+
+/* ---- Screen Container ---- */
+.screen-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 96px;
+    scroll-behavior: smooth;
+}
+
+.screen-container::-webkit-scrollbar {
+    display: none;
+}
