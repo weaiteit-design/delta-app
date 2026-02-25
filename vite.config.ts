@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import http from 'http'
 import https from 'https'
+import path from 'path'
 
 export default defineConfig({
     plugins: [
@@ -39,6 +40,14 @@ export default defineConfig({
             }
         }
     ],
+    resolve: {
+        alias: {
+            'react-native': 'react-native-web',
+            'lucide-react-native': path.resolve(__dirname, 'node_modules/lucide-react/dist/esm/lucide-react.js'),
+            'expo-clipboard': path.resolve(__dirname, 'src/shims/expo-clipboard.ts'),
+        },
+        extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
+    },
     server: {
         port: 5173,
         open: true
