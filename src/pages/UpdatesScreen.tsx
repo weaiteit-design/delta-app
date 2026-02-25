@@ -8,7 +8,7 @@ import { SectionLabel } from '../shared/ui/SectionLabel';
 import { FilterChips } from '../shared/ui/FilterChips';
 import { NewsCard } from '../features/NewsCard';
 import { FomoScore } from '../shared/ui/FomoScore';
-import { Play, Bookmark, BookOpen } from 'lucide-react';
+import { Play, Bookmark, BookOpen, RefreshCw } from 'lucide-react';
 
 interface UpdatesScreenProps {
     onSelectUpdate: (update: VerifiedUpdate) => void;
@@ -28,6 +28,7 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
     const [typeFilter, setTypeFilter] = useState('All');
     const [updates, setUpdates] = useState<VerifiedUpdate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [generatingLesson, setGeneratingLesson] = useState<string | null>(null);
     // Saved IDs — initialised from storageService so it persists across screens
     const [savedIds, setSavedIds] = useState<Set<string>>(
@@ -51,6 +52,21 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
             if (next.has(id)) next.delete(id); else next.add(id);
             return next;
         });
+    };
+
+    const handleRefresh = async () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        setLoading(true);
+        try {
+            const data = await contentPipeline.forceRefresh();
+            setUpdates(data);
+        } catch {
+            // silently fail — keep existing updates
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     };
 
     const handleLesson = async (item: VerifiedUpdate) => {
@@ -158,8 +174,32 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                         marginTop: 2,
                     }}>Personalised for {user.role}</p>
                 </div>
-                {/* Pipeline source indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {/* Refresh + pipeline source indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 30,
+                            height: 30,
+                            border: '1px solid var(--border)',
+                            borderRadius: '50%',
+                            background: 'transparent',
+                            cursor: refreshing ? 'not-allowed' : 'pointer',
+                            color: 'var(--text-3)',
+                            padding: 0,
+                            transition: 'color 0.2s',
+                        }}>
+                        <RefreshCw
+                            size={14}
+                            style={{
+                                animation: refreshing ? 'spin 0.8s linear infinite' : 'none',
+                            }}
+                        />
+                    </button>
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',

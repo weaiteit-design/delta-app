@@ -98,6 +98,7 @@ export interface SkillData {
 export interface PipelineStats {
     lastFetchAt: string | null;
     sourceCounts: Record<string, number>;
+    sourceHealth: Record<string, 'alive' | 'dead'>;
     totalRaw: number;
     totalAfterDedup: number;
     totalAfterFilter: number;

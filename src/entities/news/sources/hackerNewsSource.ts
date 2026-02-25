@@ -1,33 +1,59 @@
 import { RawContentItem } from '../../../shared/types/types';
 
-// Broader keyword set — catches all AI/ML content, not just 'ai'/'llm'/'gpt'
-const AI_KEYWORDS_HN = [
+// Combined AI keyword set from both branches — broad coverage
+const AI_KEYWORDS = [
     'ai', 'llm', 'gpt', 'claude', 'chatgpt', 'gemini', 'openai', 'anthropic',
-    'deepmind', 'llama', 'mistral', 'diffusion', 'machine learning', 'neural',
-    'transformer', 'cursor', 'midjourney', 'deepseek', 'language model', 'copilot',
+    'deepmind', 'llama', 'mistral', 'diffusion', 'machine learning', 'deep learning',
+    'neural', 'transformer', 'generative', 'cursor', 'midjourney', 'deepseek',
+    'language model', 'large language model', 'artificial intelligence', 'copilot',
     'stable diffusion', 'hugging face', 'inference', 'fine-tun', 'embedding',
+    'prompt', 'rag', 'multimodal', 'agent', 'perplexity', 'langchain', 'automation',
+    'chatbot', 'dall-e', 'text-to-image', 'text-to-video', 'voice clone',
+    'code generation', 'ai coding', 'llamaindex',
 ];
 
 export async function fetchHackerNewsPosts(): Promise<RawContentItem[]> {
     try {
-        // topstories = community-upvoted quality content; much better signal than newstories
-        const topIdsResponse = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
-        const topIds = await topIdsResponse.json();
-        // Check top 100 stories — already quality-filtered by community upvotes
-        const candidateIds = topIds.slice(0, 100);
+        // Fetch from both topstories and beststories for better signal
+        const [topRes, bestRes] = await Promise.allSettled([
+            fetch('https://hacker-news.firebaseio.com/v0/topstories.json', {
+                signal: AbortSignal.timeout(8000),
+            }).then(r => r.json()),
+            fetch('https://hacker-news.firebaseio.com/v0/beststories.json', {
+                signal: AbortSignal.timeout(8000),
+            }).then(r => r.json()),
+        ]);
 
-        const items: RawContentItem[] = [];
-        const detailPromises = candidateIds.map((id: number) =>
-            fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).then(r => r.json())
+        // Merge and deduplicate IDs from both endpoints
+        const allIds = new Set<number>();
+        if (topRes.status === 'fulfilled') {
+            (topRes.value as number[]).slice(0, 60).forEach(id => allIds.add(id));
+        }
+        if (bestRes.status === 'fulfilled') {
+            (bestRes.value as number[]).slice(0, 60).forEach(id => allIds.add(id));
+        }
+
+        if (allIds.size === 0) return [];
+
+        // Fetch story details with timeout per request, using allSettled for resilience
+        const storyIds = Array.from(allIds).slice(0, 100);
+        const detailResults = await Promise.allSettled(
+            storyIds.map(id =>
+                fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+                    signal: AbortSignal.timeout(5000),
+                }).then(r => r.json())
+            )
         );
 
-        const details = await Promise.all(detailPromises);
+        const items: RawContentItem[] = [];
+        for (const result of detailResults) {
+            if (result.status !== 'fulfilled' || !result.value) continue;
+            const p = result.value;
+            if (!p.title) continue;
 
-        details.forEach(p => {
-            if (!p || !p.title) return;
             const titleLower = p.title.toLowerCase();
-            const isAIRelevant = AI_KEYWORDS_HN.some(k => titleLower.includes(k));
-            if (!isAIRelevant) return;
+            const isAIRelated = AI_KEYWORDS.some(k => titleLower.includes(k));
+            if (!isAIRelated) continue;
 
             items.push({
                 id: `hn-${p.id}`,
@@ -41,7 +67,7 @@ export async function fetchHackerNewsPosts(): Promise<RawContentItem[]> {
                 contentHash: String(p.id),
                 rawData: p,
             });
-        });
+        }
 
         return items;
     } catch (e) {
