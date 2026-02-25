@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Home, Newspaper, BookOpen, Wrench, MessageCircle, Library } from 'lucide-react-native';
 
 import { contentPipeline } from '../entities/news/contentPipeline';
 import { supabase } from '../shared/api/supabaseClient';
@@ -72,32 +73,32 @@ function MainTabs() {
             <Tab.Screen
                 name="Home"
                 component={HomeScreen}
-                options={{ tabBarLabel: 'Home', tabBarIcon: () => null }}
+                options={{ tabBarLabel: 'Home', tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }}
             />
             <Tab.Screen
                 name="Updates"
                 component={UpdatesScreen}
-                options={{ tabBarLabel: 'Updates', tabBarIcon: () => null }}
+                options={{ tabBarLabel: 'Updates', tabBarIcon: ({ color, size }) => <Newspaper color={color} size={size} /> }}
             />
             <Tab.Screen
                 name="Learn"
                 component={LearnScreen}
-                options={{ tabBarLabel: 'Learn', tabBarIcon: () => null }}
+                options={{ tabBarLabel: 'Learn', tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} /> }}
             />
             <Tab.Screen
                 name="Tools"
                 component={ToolsScreen}
-                options={{ tabBarLabel: 'Tools', tabBarIcon: () => null }}
+                options={{ tabBarLabel: 'Tools', tabBarIcon: ({ color, size }) => <Wrench color={color} size={size} /> }}
             />
             <Tab.Screen
                 name="Chat"
                 component={ChatScreen}
-                options={{ tabBarLabel: 'Chat', tabBarIcon: () => null }}
+                options={{ tabBarLabel: 'Chat', tabBarIcon: ({ color, size }) => <MessageCircle color={color} size={size} /> }}
             />
             <Tab.Screen
                 name="Library"
                 component={LibraryScreen}
-                options={{ tabBarLabel: 'Library', tabBarIcon: () => null }}
+                options={{ tabBarLabel: 'Library', tabBarIcon: ({ color, size }) => <Library color={color} size={size} /> }}
             />
         </Tab.Navigator>
     );
