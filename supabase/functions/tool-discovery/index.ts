@@ -96,6 +96,37 @@ async function discoverFromGitHub(): Promise<{ url: string; name: string; source
   return results;
 }
 
+// ---- Source: Product Hunt AI category (RSS — no API key needed) ----
+async function discoverFromProductHunt(): Promise<{ url: string; name: string; source: string }[]> {
+  const results: { url: string; name: string; source: string }[] = [];
+  try {
+    const res = await fetch('https://www.producthunt.com/feed?category=artificial-intelligence', {
+      headers: { 'User-Agent': 'DeltaAI/1.0' },
+    });
+    if (!res.ok) return results;
+    const xml = await res.text();
+
+    // Parse RSS <item> blocks
+    const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+    for (const match of itemMatches) {
+      const block = match[1];
+      const titleMatch = block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || block.match(/<title>(.*?)<\/title>/);
+      const linkMatch = block.match(/<link>(https?:\/\/[^<]+)<\/link>/);
+
+      if (!titleMatch || !linkMatch) continue;
+
+      const url = linkMatch[1].trim().replace(/\/+$/, '');
+      if (url.includes('producthunt.com')) continue; // skip PH-internal links
+
+      results.push({ url, name: titleMatch[1].trim(), source: 'product_hunt' });
+      if (results.length >= 20) break;
+    }
+  } catch (e) {
+    console.warn('[Discovery] Product Hunt fetch failed:', e);
+  }
+  return results;
+}
+
 // ---- Deduplication check ----
 async function isAlreadyKnown(url: string): Promise<boolean> {
   const domain = new URL(url).hostname.replace('www.', '');
@@ -126,16 +157,18 @@ serve(async (req: Request) => {
     console.log('[Discovery] Starting tool discovery pipeline...');
 
     // Discover from all sources in parallel
-    const [hnResults, redditResults, githubResults] = await Promise.allSettled([
+    const [hnResults, redditResults, githubResults, phResults] = await Promise.allSettled([
       discoverFromHN(),
       discoverFromReddit(),
       discoverFromGitHub(),
+      discoverFromProductHunt(),
     ]);
 
     const allCandidates = [
       ...(hnResults.status === 'fulfilled' ? hnResults.value : []),
       ...(redditResults.status === 'fulfilled' ? redditResults.value : []),
       ...(githubResults.status === 'fulfilled' ? githubResults.value : []),
+      ...(phResults.status === 'fulfilled' ? phResults.value : []),
     ];
 
     console.log(`[Discovery] Found ${allCandidates.length} candidates across all sources`);
@@ -172,9 +205,10 @@ serve(async (req: Request) => {
       added_to_queue: added,
       skipped_duplicates: skipped,
       sources: {
-        hacker_news: hnResults.status === 'fulfilled' ? hnResults.value.length : 0,
-        reddit: redditResults.status === 'fulfilled' ? redditResults.value.length : 0,
-        github: githubResults.status === 'fulfilled' ? githubResults.value.length : 0,
+        hacker_news:   hnResults.status     === 'fulfilled' ? hnResults.value.length     : 0,
+        reddit:        redditResults.status === 'fulfilled' ? redditResults.value.length : 0,
+        github:        githubResults.status === 'fulfilled' ? githubResults.value.length : 0,
+        product_hunt:  phResults.status     === 'fulfilled' ? phResults.value.length     : 0,
       },
     };
 

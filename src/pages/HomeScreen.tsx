@@ -100,6 +100,14 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
 
     const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
+    // Streak at risk if last active > 18h ago
+    const streakAtRisk = user.streak > 0 && (() => {
+        try {
+            const hoursAgo = (Date.now() - new Date(user.lastVisit).getTime()) / 3600000;
+            return hoursAgo > 18;
+        } catch { return false; }
+    })();
+
     // Daily Hack — find best trick/workflow, or use a static fallback
     const dailyHack = [...updates].find(u => u.type === 'trick' || u.type === 'workflow');
     const fallbackHack: VerifiedUpdate = {
@@ -142,6 +150,26 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
             {/* Streak Bar */}
             <View style={{ marginTop: 16 }}>
                 <StreakBar />
+            </View>
+
+            {/* Daily Challenge */}
+            <View style={styles.dailyChallengeCard}>
+                <View style={styles.dailyChallengeLeft}>
+                    <Text style={styles.dailyChallengeEmoji}>{streakAtRisk ? '🔥' : '🎯'}</Text>
+                    <View>
+                        <Text style={styles.dailyChallengeTitle}>Daily Challenge</Text>
+                        <Text style={styles.dailyChallengeDesc}>
+                            {streakAtRisk
+                                ? `Keep your ${user.streak}-day streak alive! Complete a lesson now.`
+                                : 'Complete 1 lesson today for a +25 XP bonus!'}
+                        </Text>
+                    </View>
+                </View>
+                <View style={[styles.dailyChallengeXp, streakAtRisk && styles.dailyChallengeXpUrgent]}>
+                    <Text style={[styles.dailyChallengeXpText, streakAtRisk && { color: colors.orange }]}>
+                        {streakAtRisk ? 'At risk' : '+25 XP'}
+                    </Text>
+                </View>
             </View>
 
             {/* Daily AI Hack */}
@@ -194,7 +222,7 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                             <Text style={styles.heroTitle}>{heroUpdate.title}</Text>
                             <Text style={styles.heroSummary} numberOfLines={3}>{heroUpdate.shortSummary}</Text>
                             <View style={styles.heroMeta}>
-                                <Text style={styles.heroSource}>{heroUpdate.source}</Text>
+                                <Text style={styles.heroSource}>Delta Intelligence</Text>
                                 <Text style={styles.heroTime}>· {heroUpdate.timeAgo}</Text>
                             </View>
                         </TouchableOpacity>
@@ -455,5 +483,55 @@ const styles = StyleSheet.create({
     toolsScroll: {
         paddingHorizontal: 20,
         gap: 12,
+    },
+    dailyChallengeCard: {
+        marginHorizontal: 20,
+        marginTop: 16,
+        marginBottom: 8,
+        padding: 14,
+        backgroundColor: 'rgba(99,102,241,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.25)',
+        borderRadius: radius.xl,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    dailyChallengeLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        flex: 1,
+    },
+    dailyChallengeEmoji: {
+        fontSize: 22,
+    },
+    dailyChallengeTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: colors.text1,
+    },
+    dailyChallengeDesc: {
+        fontSize: 11,
+        color: colors.text3,
+        marginTop: 2,
+        maxWidth: 200,
+    },
+    dailyChallengeXp: {
+        backgroundColor: 'rgba(251,191,36,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(251,191,36,0.3)',
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+    },
+    dailyChallengeXpUrgent: {
+        backgroundColor: 'rgba(249,115,22,0.12)',
+        borderColor: 'rgba(249,115,22,0.3)',
+    },
+    dailyChallengeXpText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.yellow,
     },
 });

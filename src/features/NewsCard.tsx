@@ -32,9 +32,21 @@ function getNewsColor(type: string): string {
     }
 }
 
+function getTypeLabel(type: string): string {
+    switch (type) {
+        case 'capability':  return 'AI Capability';
+        case 'trick':       return 'AI Trick';
+        case 'workflow':    return 'Workflow';
+        case 'new-tool':    return 'New Tool';
+        case 'tool-update': return 'Tool Update';
+        default:            return 'Delta Intelligence';
+    }
+}
+
 export function NewsCard({ item, onClick }: NewsCardProps) {
     const [saved, setSaved] = useState(() => storageService.isArticleSaved(item.id));
     const dotColor = getNewsColor(item.type);
+    const typeLabel = getTypeLabel(item.type);
 
     const handlePress = () => {
         if (onClick) {
@@ -53,7 +65,7 @@ export function NewsCard({ item, onClick }: NewsCardProps) {
             <View style={styles.content}>
                 <Text style={[styles.tag, { color: dotColor }]}>{item.tag}</Text>
                 <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-                <Text style={styles.meta}>{item.source} · {item.timeAgo}</Text>
+                <Text style={styles.meta}>{typeLabel} · {item.timeAgo}</Text>
             </View>
 
             {/* Right: bookmark + FOMO */}
