@@ -490,8 +490,8 @@ class ContentPipeline {
         // If we ended up with fewer than 5 highly actionable items (due to strict filters),
         // let's supplement the feed with our high-quality TAAFT mock tools and workflows
         // so the user never sees a blank or mostly empty screen.
-        let finalUpdates = deltafiedUpdates.slice(0, 30);
-        if (finalUpdates.length < 5) {
+        let finalUpdates = deltafiedUpdates.slice(0, 50);
+        if (finalUpdates.length < 8) {
             console.warn(`[Pipeline] Only ${finalUpdates.length} items passed strict filter. Injecting fallbacks to fill UI.`);
             const fallbacks = this.getFallbackUpdates();
             // deduplicate IDs just in case

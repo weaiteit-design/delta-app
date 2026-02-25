@@ -26,11 +26,13 @@ import { ToolDetail } from '../pages/ToolDetail';
 import { ToolGuide } from '../pages/ToolGuide';
 import { ArticleReader } from '../pages/ArticleReader';
 import { AuthScreen } from '../pages/AuthScreen';
+import { OnboardingScreen } from '../pages/OnboardingScreen';
 
 // Navigation param types
 export type RootStackParamList = {
     MainTabs: undefined;
     Auth: undefined;
+    Onboarding: undefined;
     Profile: undefined;
     Preferences: undefined;
     Lesson: { lesson: LessonData };
@@ -143,8 +145,13 @@ function MainTabs() {
 export default function App() {
     const [session, setSession] = useState<any>(null);
     const [authChecking, setAuthChecking] = useState(true);
+    const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
     useEffect(() => {
+        // Check onboarding state
+        const user = storageService.getUser();
+        setNeedsOnboarding(!user.onboardingComplete || !user.name);
+
         if (supabase.auth) {
             supabase.auth.getSession().then(({ data: { session } }) => {
                 setSession(session);
@@ -197,7 +204,22 @@ export default function App() {
                         {!isLoggedIn ? (
                             <Stack.Screen name="Auth">
                                 {({ navigation }) => (
-                                    <AuthScreen onLogin={() => (navigation as any).replace('MainTabs')} />
+                                    <AuthScreen onLogin={() => {
+                                        const user = storageService.getUser();
+                                        if (!user.onboardingComplete || !user.name) {
+                                            setNeedsOnboarding(true);
+                                        }
+                                        (navigation as any).replace(needsOnboarding ? 'Onboarding' : 'MainTabs');
+                                    }} />
+                                )}
+                            </Stack.Screen>
+                        ) : needsOnboarding ? (
+                            <Stack.Screen name="Onboarding">
+                                {({ navigation }) => (
+                                    <OnboardingScreen onComplete={() => {
+                                        setNeedsOnboarding(false);
+                                        (navigation as any).replace('MainTabs');
+                                    }} />
                                 )}
                             </Stack.Screen>
                         ) : (

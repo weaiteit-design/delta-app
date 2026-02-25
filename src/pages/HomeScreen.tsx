@@ -10,6 +10,7 @@ import { VerifiedUpdate, ToolData, LessonData } from '../shared/types/types';
 import { StreakBar } from '../shared/ui/StreakBar';
 import { SectionLabel } from '../shared/ui/SectionLabel';
 import { FilterChips } from '../shared/ui/FilterChips';
+import { FomoScore } from '../shared/ui/FomoScore';
 import { LessonCard } from '../features/LessonCard';
 import { ToolCard } from '../features/ToolCard';
 import { NewsCard } from '../features/NewsCard';
@@ -22,10 +23,22 @@ interface HomeScreenProps {
     onStartLesson: (lesson: LessonData) => void;
 }
 
+function getTypeColor(type: string): string {
+    switch (type) {
+        case 'capability': return colors.red;
+        case 'trick':      return colors.orange;
+        case 'workflow':   return colors.blue;
+        case 'new-tool':   return colors.green;
+        case 'tool-update':return colors.accent2;
+        default:           return colors.text3;
+    }
+}
+
 export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLesson }: HomeScreenProps) {
     const [toolFilter, setToolFilter] = useState('All');
     const [updates, setUpdates] = useState<VerifiedUpdate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showAllUpdates, setShowAllUpdates] = useState(false);
 
     const user = storageService.getUser();
     const greeting = getGreeting();
@@ -61,11 +74,19 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
         return () => { mounted = false; };
     }, []);
 
-    const topNews = [...updates]
+    // Score and sort all updates for this user
+    const scoredUpdates = [...updates]
         .map(u => ({ update: u, score: scoreForUser(u, user) }))
         .sort((a, b) => b.score - a.score)
-        .slice(0, 4)
         .map(s => s.update);
+
+    // Hero update = top scored
+    const heroUpdate = scoredUpdates[0] || null;
+    // Rest of updates (excluding hero)
+    const restUpdates = scoredUpdates.slice(1);
+    // How many to show initially
+    const INITIAL_COUNT = 10;
+    const visibleUpdates = showAllUpdates ? restUpdates : restUpdates.slice(0, INITIAL_COUNT);
 
     const filteredTools = toolFilter === 'All'
         ? trendingTools
@@ -79,7 +100,7 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
 
     const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-    // Daily Hack — find best trick/workflow, or use a static fallback so the section always renders
+    // Daily Hack — find best trick/workflow, or use a static fallback
     const dailyHack = [...updates].find(u => u.type === 'trick' || u.type === 'workflow');
     const fallbackHack: VerifiedUpdate = {
         id: 'daily-hack-fallback',
@@ -101,18 +122,20 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
     const counts = (stats?.sourceCounts || {}) as Record<string, number>;
     const activeSources = Object.values(counts).filter(n => n > 0).length;
 
+    const heroColor = heroUpdate ? getTypeColor(heroUpdate.type) : colors.accent;
+
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <Text style={styles.greeting}>{greeting}, {user.name}</Text>
+                    <Text style={styles.greeting}>{greeting}, {user.name || 'there'}</Text>
                     <Text style={styles.subGreeting}>
                         {dayOfWeek} · {loading ? 'Loading updates...' : `${updates.length} updates today`}
                     </Text>
                 </View>
                 <TouchableOpacity onPress={onProfile} style={styles.avatarBtn}>
-                    <Text style={styles.avatarInitials}>{user.initials}</Text>
+                    <Text style={styles.avatarInitials}>{user.initials || '?'}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -121,7 +144,7 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                 <StreakBar />
             </View>
 
-            {/* Daily AI Hack — always shown: loading skeleton → live hack → static fallback */}
+            {/* Daily AI Hack */}
             {(loading || displayedHack) && (
                 <>
                     <SectionLabel>💡 DAILY AI HACK</SectionLabel>
@@ -150,6 +173,76 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                 </>
             )}
 
+            {/* ===== HERO UPDATE — Top Pick ===== */}
+            {!loading && heroUpdate && (
+                <>
+                    <SectionLabel>
+                        {`🔥 TOP PICK FOR YOU${activeSources > 0 ? ` · ${activeSources} sources` : ''}`}
+                    </SectionLabel>
+                    <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+                        <TouchableOpacity
+                            onPress={() => onSelectUpdate(heroUpdate)}
+                            style={[styles.heroCard, { borderColor: `${heroColor}40` }]}
+                            activeOpacity={0.85}
+                        >
+                            <View style={styles.heroTopRow}>
+                                <View style={[styles.heroBadge, { backgroundColor: `${heroColor}20` }]}>
+                                    <Text style={[styles.heroBadgeText, { color: heroColor }]}>{heroUpdate.tag}</Text>
+                                </View>
+                                <FomoScore score={heroUpdate.fomoScore} />
+                            </View>
+                            <Text style={styles.heroTitle}>{heroUpdate.title}</Text>
+                            <Text style={styles.heroSummary} numberOfLines={3}>{heroUpdate.shortSummary}</Text>
+                            <View style={styles.heroMeta}>
+                                <Text style={styles.heroSource}>{heroUpdate.source}</Text>
+                                <Text style={styles.heroTime}>· {heroUpdate.timeAgo}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            )}
+
+            {/* ===== LIVE UPDATES FEED — 10+ items ===== */}
+            <SectionLabel>
+                {`📡 LIVE AI UPDATES${updates.length > 0 ? ` · ${updates.length} stories` : ''}`}
+            </SectionLabel>
+            <View style={styles.newsList}>
+                {loading ? (
+                    [1, 2, 3, 4, 5].map(i => (
+                        <View key={i} style={styles.skeletonCard}>
+                            <View style={[styles.skeleton, { width: '30%', height: 10, marginBottom: 8 }]} />
+                            <View style={[styles.skeleton, { width: '90%', height: 14, marginBottom: 6 }]} />
+                            <View style={[styles.skeleton, { width: '60%', height: 10 }]} />
+                        </View>
+                    ))
+                ) : visibleUpdates.length === 0 && !heroUpdate ? (
+                    <View style={styles.emptyState}>
+                        <Text style={{ fontSize: 28, marginBottom: 8 }}>📡</Text>
+                        <Text style={styles.emptyText}>Fetching live AI updates from {activeSources || 7} sources...</Text>
+                        <Text style={styles.emptySubtext}>Pull down to refresh. First fetch may take a moment.</Text>
+                    </View>
+                ) : (
+                    <>
+                        {visibleUpdates.map((item) => (
+                            <NewsCard key={item.id} item={item} onClick={() => onSelectUpdate(item)} />
+                        ))}
+                        {restUpdates.length > INITIAL_COUNT && (
+                            <TouchableOpacity
+                                onPress={() => setShowAllUpdates(!showAllUpdates)}
+                                style={styles.showMoreBtn}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.showMoreText}>
+                                    {showAllUpdates
+                                        ? 'Show Less'
+                                        : `Show ${restUpdates.length - INITIAL_COUNT} More Updates`}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </>
+                )}
+            </View>
+
             {/* Continue Learning */}
             <SectionLabel>📖 CONTINUE LEARNING</SectionLabel>
             <LessonCard lesson={topLesson} onStartLesson={() => onStartLesson(topLesson)} />
@@ -171,27 +264,6 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                     <ToolCard key={tool.id} tool={tool} onClick={() => onSelectTool(tool)} />
                 ))}
             </ScrollView>
-
-            {/* Today's Updates */}
-            <SectionLabel>
-                {`📡 TODAY'S UPDATES${activeSources > 0 ? ` · ${activeSources} sources` : ''}`}
-            </SectionLabel>
-            <View style={styles.newsList}>
-                {loading ? (
-                    [1, 2, 3].map(i => (
-                        <View key={i} style={styles.skeleton} />
-                    ))
-                ) : topNews.length === 0 ? (
-                    <View style={{ padding: 24, alignItems: 'center', backgroundColor: colors.surface2, borderRadius: 20, borderWidth: 1, borderColor: colors.border }}>
-                        <Text style={{ fontSize: 28, marginBottom: 8 }}>📡</Text>
-                        <Text style={{ fontSize: 12, color: colors.text3, textAlign: 'center', lineHeight: 18 }}>No live updates available right now. Check back shortly!</Text>
-                    </View>
-                ) : (
-                    topNews.map((item) => (
-                        <NewsCard key={item.id} item={item} onClick={() => onSelectUpdate(item)} />
-                    ))
-                )}
-            </View>
 
             <View style={{ height: 20 }} />
         </ScrollView>
@@ -279,20 +351,109 @@ const styles = StyleSheet.create({
         color: colors.text2,
         lineHeight: 20,
     },
-    toolsScroll: {
-        paddingHorizontal: 20,
-        gap: 12,
+    // Hero Card
+    heroCard: {
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderRadius: radius.xxl,
+        padding: 18,
     },
+    heroTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    heroBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    heroBadgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+    },
+    heroTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: colors.text1,
+        lineHeight: 24,
+        marginBottom: 8,
+    },
+    heroSummary: {
+        fontSize: 14,
+        color: colors.text2,
+        lineHeight: 21,
+        marginBottom: 12,
+    },
+    heroMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    heroSource: {
+        fontSize: 11,
+        color: colors.text3,
+        fontWeight: '600',
+    },
+    heroTime: {
+        fontSize: 11,
+        color: colors.text3,
+    },
+    // Updates List
     newsList: {
         paddingHorizontal: 20,
         gap: 10,
+        marginBottom: 28,
     },
-    skeleton: {
-        height: 72,
+    emptyState: {
+        padding: 24,
+        alignItems: 'center',
+        backgroundColor: colors.surface2,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    emptyText: {
+        fontSize: 13,
+        color: colors.text2,
+        textAlign: 'center',
+        fontWeight: '600',
+    },
+    emptySubtext: {
+        fontSize: 12,
+        color: colors.text3,
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    showMoreBtn: {
+        paddingVertical: 14,
+        borderRadius: 16,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: 'center',
+    },
+    showMoreText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: colors.accent2,
+    },
+    skeletonCard: {
         backgroundColor: colors.surface2,
         borderWidth: 1,
         borderColor: colors.border,
         borderRadius: radius.xl,
-        marginBottom: 10,
+        padding: 16,
+    },
+    skeleton: {
+        backgroundColor: colors.surface3,
+        borderRadius: 6,
+    },
+    toolsScroll: {
+        paddingHorizontal: 20,
+        gap: 12,
     },
 });
