@@ -282,7 +282,7 @@ class ContentPipeline {
         this.init();
 
         // Return cached if fresh
-        const cached = storageService.getCache<VerifiedUpdate[]>('delta_pipeline_updates', CACHE_TTL.NEWS);
+        const cached = storageService.getCache<VerifiedUpdate[]>('delta_pipeline_updates_v2', CACHE_TTL.NEWS);
         if (cached && cached.length > 0) {
             console.log('[Pipeline] Returning cached updates:', cached.length);
             // Record cache hit in stats
@@ -386,7 +386,8 @@ class ContentPipeline {
             };
             savePipelineStats(stats);
             const fallbacks = this.getFallbackUpdates();
-            storageService.setCache('delta_pipeline_updates', fallbacks);
+            // Use a shorter 15-minute TTL so fallback-only results rotate faster
+            storageService.setCache('delta_pipeline_updates_v2', fallbacks, 15 * 60 * 1000);
             return fallbacks;
         }
 
@@ -492,8 +493,8 @@ class ContentPipeline {
             }
         }
 
-        // Cache the results
-        storageService.setCache('delta_pipeline_updates', finalUpdates);
+        // Cache the results (full 1-hour TTL for real content)
+        storageService.setCache('delta_pipeline_updates_v2', finalUpdates);
 
         // Save pipeline stats
         const stats: PipelineStats = {
@@ -537,6 +538,13 @@ class ContentPipeline {
         } catch (e) {
             console.warn('[Pipeline] Supabase upsert skipped:', e);
         }
+    }
+
+    async forceRefresh(): Promise<VerifiedUpdate[]> {
+        storageService.removeCache('delta_pipeline_updates_v2');
+        this.isFetching = false;
+        this.lastFetchPromise = null;
+        return this.getUpdates();
     }
 
     // Rotating pool of curated AI tips — changes every hour (matches cache TTL)

@@ -247,8 +247,9 @@ class StorageService {
         try {
             const raw = localStorage.getItem(key);
             if (!raw) return null;
-            const { data, timestamp } = JSON.parse(raw);
-            if (Date.now() - timestamp > maxAgeMs) {
+            const { data, timestamp, ttlMs } = JSON.parse(raw);
+            const effectiveTtl = ttlMs ?? maxAgeMs;
+            if (Date.now() - timestamp > effectiveTtl) {
                 localStorage.removeItem(key);
                 return null;
             }
@@ -258,16 +259,20 @@ class StorageService {
         }
     }
 
-    setCache(key: string, data: unknown): void {
+    setCache(key: string, data: unknown, ttlMs?: number): void {
         try {
-            localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+            localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now(), ttlMs }));
         } catch (e) {
             // localStorage full — evict old caches
             this.evictOldCaches();
             try {
-                localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+                localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now(), ttlMs }));
             } catch { }
         }
+    }
+
+    removeCache(key: string): void {
+        localStorage.removeItem(key);
     }
 
     private evictOldCaches(): void {
