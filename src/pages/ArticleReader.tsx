@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { VerifiedUpdate, LessonData } from '../shared/types/types';
 import { deltaService } from '../shared/api/deltaService';
-import { ArrowLeft, ExternalLink, BookOpen, Bookmark, Clock, Globe } from 'lucide-react-native';
+import { ArrowLeft, ExternalLink, BookOpen, Bookmark, Clock } from 'lucide-react-native';
 import { FomoScore } from '../shared/ui/FomoScore';
 import { colors, radius } from '../shared/platform/theme';
 
@@ -81,8 +81,9 @@ export function ArticleReader({ article, onBack, onStartLesson }: ArticleReaderP
 
             <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
-                    <Globe size={12} color={colors.text3} />
-                    <Text style={styles.metaText}>{article.source}</Text>
+                    <View style={styles.deltaTag}>
+                        <Text style={styles.deltaTagText}>DELTA INTELLIGENCE</Text>
+                    </View>
                 </View>
                 <View style={styles.metaItem}>
                     <Clock size={12} color={colors.text3} />
@@ -110,9 +111,7 @@ export function ArticleReader({ article, onBack, onStartLesson }: ArticleReaderP
             <View style={styles.sourceSection}>
                 <TouchableOpacity onPress={() => article.url && openUrl(article.url)} style={styles.sourceBtn}>
                     <ExternalLink size={14} color={colors.text2} />
-                    <Text style={styles.sourceBtnText}>
-                        Read Full Article at {article.sourceDomain || 'Source'}
-                    </Text>
+                    <Text style={styles.sourceBtnText}>Read Full Article</Text>
                 </TouchableOpacity>
             </View>
 
@@ -161,6 +160,21 @@ const styles = StyleSheet.create({
     },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     metaText: { fontSize: 12, color: colors.text3 },
+    deltaTag: {
+        backgroundColor: 'rgba(99,102,241,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.25)',
+        borderRadius: 6,
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+    },
+    deltaTagText: {
+        fontSize: 9,
+        fontWeight: '700',
+        letterSpacing: 0.8,
+        color: colors.accent2,
+        textTransform: 'uppercase',
+    },
     summaryCard: {
         marginHorizontal: 20, marginBottom: 24, padding: 16,
         backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl,

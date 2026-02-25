@@ -5,6 +5,15 @@
 import { supabase, IS_CONFIGURED } from '../../shared/api/supabaseClient';
 import platformStorage from '../../shared/platform/storage';
 
+export interface Achievement {
+    id: string;
+    name: string;
+    description: string;
+    emoji: string;
+    xpReward: number;
+    unlockedAt?: string;
+}
+
 export interface UserProfile {
     id: string;
     name: string;
@@ -26,7 +35,21 @@ export interface UserProfile {
     initials: string;
     savedArticleIds: string[];
     savedToolIds: string[];
+    unlockedAchievementIds: string[];
 }
+
+export const ACHIEVEMENTS: Achievement[] = [
+    { id: 'first_lesson',   name: 'First Step',    description: 'Complete your first lesson',     emoji: '🎯', xpReward: 50  },
+    { id: 'five_lessons',   name: 'Quick Learner', description: 'Complete 5 lessons',             emoji: '⚡', xpReward: 100 },
+    { id: 'ten_lessons',    name: 'Dedicated',     description: 'Complete 10 lessons',            emoji: '📚', xpReward: 150 },
+    { id: 'first_save',     name: 'Curator',       description: 'Save your first update',         emoji: '🔖', xpReward: 25  },
+    { id: 'streak_3',       name: 'On a Roll',     description: 'Maintain a 3-day streak',        emoji: '🔥', xpReward: 50  },
+    { id: 'streak_7',       name: 'Week Warrior',  description: 'Maintain a 7-day streak',        emoji: '💪', xpReward: 150 },
+    { id: 'level_2',        name: 'Explorer',      description: 'Reach Explorer level',           emoji: '🚀', xpReward: 0   },
+    { id: 'level_3',        name: 'Builder',       description: 'Reach Builder level',            emoji: '🏗️', xpReward: 0   },
+    { id: 'five_saves',     name: 'Librarian',     description: 'Save 5 updates or tools',        emoji: '📖', xpReward: 75  },
+    { id: 'tool_saver',     name: 'Tool Collector',description: 'Save your first tool',           emoji: '🛠️', xpReward: 25  },
+];
 
 export const ROLES = ['Student', 'Non-Technical Pro', 'Technical Pro', 'Founder', 'Creator & Marketer'] as const;
 export const INDUSTRIES = ['Technology', 'Marketing', 'Education', 'Finance', 'Healthcare', 'Design', 'Media', 'Legal', 'Consulting', 'Other'] as const;
@@ -83,10 +106,47 @@ class StorageService {
                     completedLessonIds: parsed.completedLessonIds || def.completedLessonIds || [],
                     savedArticleIds: parsed.savedArticleIds || def.savedArticleIds || [],
                     savedToolIds: parsed.savedToolIds || def.savedToolIds || [],
+                    unlockedAchievementIds: parsed.unlockedAchievementIds || [],
                 };
             }
         } catch { }
         return def;
+    }
+
+    // ---- Achievements ----
+    checkAndUnlockAchievements(user: UserProfile): Achievement[] {
+        const totalSaves = user.savedArticleIds.length + user.savedToolIds.length;
+        const conditions: Record<string, boolean> = {
+            first_lesson:  user.lessonsCompleted >= 1,
+            five_lessons:  user.lessonsCompleted >= 5,
+            ten_lessons:   user.lessonsCompleted >= 10,
+            first_save:    user.savedArticleIds.length >= 1,
+            streak_3:      user.streak >= 3,
+            streak_7:      user.streak >= 7,
+            level_2:       user.level >= 2,
+            level_3:       user.level >= 3,
+            five_saves:    totalSaves >= 5,
+            tool_saver:    user.savedToolIds.length >= 1,
+        };
+
+        const newlyUnlocked: Achievement[] = [];
+        const current = user.unlockedAchievementIds || [];
+
+        for (const ach of ACHIEVEMENTS) {
+            if (!current.includes(ach.id) && conditions[ach.id]) {
+                newlyUnlocked.push({ ...ach, unlockedAt: new Date().toISOString() });
+                current.push(ach.id);
+            }
+        }
+
+        if (newlyUnlocked.length > 0) {
+            user.unlockedAchievementIds = current;
+            // Award bonus XP for achievements that have it
+            const bonusXp = newlyUnlocked.reduce((sum, a) => sum + (a.xpReward || 0), 0);
+            if (bonusXp > 0) user.xp += bonusXp;
+        }
+
+        return newlyUnlocked;
     }
 
     saveUser(user: UserProfile): void {
@@ -116,6 +176,7 @@ class StorageService {
             initials: '',
             savedArticleIds: [],
             savedToolIds: [],
+            unlockedAchievementIds: [],
         };
         // Do not auto-save. Let the Auth/Onboarding flow handle saving.
         return def;
@@ -141,7 +202,7 @@ class StorageService {
     }
 
     // ---- XP ----
-    addXP(amount: number, lessonId?: string): { user: UserProfile, leveledUp: boolean } {
+    addXP(amount: number, lessonId?: string): { user: UserProfile, leveledUp: boolean, newAchievements: Achievement[] } {
         const user = this.getUser();
         const oldLevel = user.level;
 
@@ -155,10 +216,12 @@ class StorageService {
         user.level = lvl.level;
         user.levelTitle = lvl.title;
 
+        const newAchievements = this.checkAndUnlockAchievements(user);
+
         this.saveUser(user);
         this.syncToCloud(user);
 
-        return { user, leveledUp: user.level > oldLevel };
+        return { user, leveledUp: user.level > oldLevel, newAchievements };
     }
 
     // ---- Saves/Bookmarks ----
@@ -170,6 +233,12 @@ class StorageService {
         } else {
             user.savedArticleIds.push(articleId);
             isSaved = true;
+            // Award XP for saving
+            user.xp += 5;
+            const lvl = getLevelForXP(user.xp);
+            user.level = lvl.level;
+            user.levelTitle = lvl.title;
+            this.checkAndUnlockAchievements(user);
         }
         this.saveUser(user);
         return isSaved;

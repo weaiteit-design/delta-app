@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { storageService, getLevelForXP, LEVELS } from '../entities/user/storageService';
+import { storageService, getLevelForXP, LEVELS, ACHIEVEMENTS } from '../entities/user/storageService';
 import { SectionLabel } from '../shared/ui/SectionLabel';
 import { X, Pencil, Share2 } from 'lucide-react-native';
 import { colors, radius } from '../shared/platform/theme';
@@ -10,17 +10,38 @@ interface ProfileScreenProps {
     onOpenPreferences?: () => void;
 }
 
-const SKILLS = [
-    { name: 'AI Writing', emoji: '✍️', percent: 72, color: colors.accent2 },
-    { name: 'Prompt Engineering', emoji: '🧠', percent: 58, color: colors.blue },
-    { name: 'AI Image Gen', emoji: '🎨', percent: 28, color: colors.pink },
-    { name: 'Coding Copilots', emoji: '💻', percent: 45, color: colors.orange },
-    { name: 'AI Research', emoji: '🔬', percent: 62, color: colors.green },
+const SKILL_DEFS = [
+    { name: 'AI Writing',         emoji: '✍️', color: colors.accent2, keywords: ['writing', 'content', 'copy', 'email', 'blog', 'creative'] },
+    { name: 'Prompt Engineering', emoji: '🧠', color: colors.blue,    keywords: ['prompt', 'chatgpt', 'claude', 'gemini', 'gpt'] },
+    { name: 'AI Image Gen',       emoji: '🎨', color: colors.pink,    keywords: ['image', 'midjourney', 'dalle', 'stable', 'krea', 'leonardo'] },
+    { name: 'Coding Copilots',    emoji: '💻', color: colors.orange,  keywords: ['code', 'cursor', 'copilot', 'replit', 'v0', 'programming'] },
+    { name: 'AI Research',        emoji: '🔬', color: colors.green,   keywords: ['research', 'perplexity', 'search', 'analysis'] },
 ];
+
+function computeSkills(user: ReturnType<typeof storageService.getUser>) {
+    // Base score from XP (max 40%)
+    const xpBase = Math.min(user.xp / 25, 40);
+    // Extra from lesson count
+    const lessonBoost = Math.min(user.lessonsCompleted * 4, 30);
+    // Per-skill boosts from saved tools and lesson IDs
+    const allIds = [...(user.completedLessonIds || []), ...(user.savedToolIds || [])].join(' ').toLowerCase();
+    const articleIds = (user.savedArticleIds || []).join(' ').toLowerCase();
+
+    return SKILL_DEFS.map(skill => {
+        const keywordMatches = skill.keywords.filter(kw => allIds.includes(kw) || articleIds.includes(kw)).length;
+        const bonus = Math.min(keywordMatches * 8, 30);
+        // Add some per-category variation based on goal/category alignment
+        const categoryMatch = user.preferredCategories?.some(c => c.toLowerCase().includes(skill.keywords[0])) ? 10 : 0;
+        const raw = Math.round(xpBase + lessonBoost * 0.6 + bonus + categoryMatch);
+        return { ...skill, percent: Math.min(Math.max(raw, 5), 95) };
+    });
+}
 
 export function ProfileScreen({ onClose, onOpenPreferences }: ProfileScreenProps) {
     const user = storageService.getUser();
     const currentLevelIdx = LEVELS.findIndex(l => l.title === user.levelTitle);
+    const skills = computeSkills(user);
+    const unlockedIds = user.unlockedAchievementIds || [];
     const nextLevel = LEVELS[currentLevelIdx + 1];
 
     const STATS = [
@@ -92,7 +113,7 @@ export function ProfileScreen({ onClose, onOpenPreferences }: ProfileScreenProps
             {/* AI Skill Stack */}
             <SectionLabel>🎯 YOUR AI SKILL STACK</SectionLabel>
             <View style={[styles.section, { gap: 14 }]}>
-                {SKILLS.map((skill) => (
+                {skills.map((skill) => (
                     <View key={skill.name}>
                         <View style={styles.skillRow}>
                             <View style={styles.skillNameRow}>
@@ -106,6 +127,26 @@ export function ProfileScreen({ onClose, onOpenPreferences }: ProfileScreenProps
                         </View>
                     </View>
                 ))}
+            </View>
+
+            {/* Achievements */}
+            <SectionLabel>🏅 ACHIEVEMENTS</SectionLabel>
+            <View style={styles.achievementsGrid}>
+                {ACHIEVEMENTS.map((ach) => {
+                    const unlocked = unlockedIds.includes(ach.id);
+                    return (
+                        <View key={ach.id} style={[styles.achCard, !unlocked && styles.achCardLocked]}>
+                            <Text style={[styles.achEmoji, !unlocked && styles.achEmojiLocked]}>{ach.emoji}</Text>
+                            <Text style={[styles.achName, !unlocked && styles.achNameLocked]}>{ach.name}</Text>
+                            <Text style={styles.achDesc} numberOfLines={2}>{ach.description}</Text>
+                            {ach.xpReward > 0 && (
+                                <Text style={[styles.achXp, !unlocked && { color: colors.text3 }]}>
+                                    +{ach.xpReward} XP
+                                </Text>
+                            )}
+                        </View>
+                    );
+                })}
             </View>
 
             {/* Level Journey */}
@@ -349,5 +390,54 @@ const styles = StyleSheet.create({
         color: colors.text3,
         textAlign: 'center',
         marginTop: 8,
+    },
+    achievementsGrid: {
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginBottom: 24,
+    },
+    achCard: {
+        width: '30%',
+        flexGrow: 1,
+        backgroundColor: 'rgba(99,102,241,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.25)',
+        borderRadius: radius.lg,
+        padding: 12,
+        alignItems: 'center',
+        gap: 4,
+    },
+    achCardLocked: {
+        backgroundColor: colors.surface2,
+        borderColor: colors.border,
+        opacity: 0.5,
+    },
+    achEmoji: {
+        fontSize: 22,
+    },
+    achEmojiLocked: {
+        opacity: 0.4,
+    },
+    achName: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.accent2,
+        textAlign: 'center',
+    },
+    achNameLocked: {
+        color: colors.text3,
+    },
+    achDesc: {
+        fontSize: 9,
+        color: colors.text3,
+        textAlign: 'center',
+        lineHeight: 13,
+    },
+    achXp: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: colors.yellow,
     },
 });

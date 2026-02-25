@@ -91,8 +91,6 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
 
     // Pipeline health stats
     const stats = getPipelineStats();
-    const activeSources = Object.values(stats?.sourceCounts || {}).filter(n => n > 0).length;
-    const totalSources = Math.max(Object.keys(stats?.sourceCounts || {}).length, 7);
 
     // Personalised scoring — hero is top-scored item
     const scoredUpdates = updates.map(u => ({
@@ -154,11 +152,6 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                             {stats.cacheHit ? 'Cached' : loading ? 'Fetching...' : 'Live'}
                         </Text>
                     </View>
-                    {activeSources > 0 && (
-                        <View style={styles.sourcesBadge}>
-                            <Text style={styles.sourcesText}>{activeSources}/{totalSources} src</Text>
-                        </View>
-                    )}
                 </View>
             </View>
 
@@ -326,21 +319,6 @@ const styles = StyleSheet.create({
     statusText: {
         fontSize: 10,
         fontWeight: '600',
-    },
-    sourcesBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 20,
-        paddingVertical: 3,
-        paddingHorizontal: 10,
-    },
-    sourcesText: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: colors.text3,
     },
     heroSkeleton: {
         marginHorizontal: 20,

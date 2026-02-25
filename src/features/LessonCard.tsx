@@ -18,7 +18,15 @@ interface LessonCardProps {
     onStartLesson?: () => void;
 }
 
+const DIFFICULTY_CONFIG: Record<number, { label: string; color: string; bg: string; border: string }> = {
+    1: { label: 'Beginner',     color: colors.green,  bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.3)'  },
+    2: { label: 'Intermediate', color: colors.blue,   bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.3)'  },
+    3: { label: 'Advanced',     color: colors.accent2, bg: 'rgba(129,140,248,0.15)', border: 'rgba(129,140,248,0.35)' },
+};
+
 export function LessonCard({ lesson, onStartLesson }: LessonCardProps) {
+    const diff = DIFFICULTY_CONFIG[lesson.difficulty] || DIFFICULTY_CONFIG[2];
+
     return (
         <TouchableOpacity
             style={styles.card}
@@ -27,9 +35,14 @@ export function LessonCard({ lesson, onStartLesson }: LessonCardProps) {
         >
             {/* Header Zone */}
             <View style={styles.header}>
-                {/* Pill */}
-                <View style={styles.pill}>
-                    <Text style={styles.pillText}>{lesson.pill}</Text>
+                {/* Top row: pill + difficulty */}
+                <View style={styles.pillRow}>
+                    <View style={styles.pill}>
+                        <Text style={styles.pillText}>{lesson.pill}</Text>
+                    </View>
+                    <View style={[styles.difficultyPill, { backgroundColor: diff.bg, borderColor: diff.border }]}>
+                        <Text style={[styles.difficultyText, { color: diff.color }]}>{diff.label}</Text>
+                    </View>
                 </View>
 
                 {/* Title + meta */}
@@ -53,14 +66,7 @@ export function LessonCard({ lesson, onStartLesson }: LessonCardProps) {
                         <Play size={14} color="#fff" fill="#fff" />
                         <Text style={styles.startBtnText}>Start Lesson</Text>
                     </TouchableOpacity>
-                    <View style={styles.difficultyDots}>
-                        {[1, 2, 3].map((dot) => (
-                            <View
-                                key={dot}
-                                style={[styles.dot, { backgroundColor: dot <= lesson.difficulty ? colors.accent2 : colors.surface3 }]}
-                            />
-                        ))}
-                    </View>
+                    <Text style={styles.xpHint}>+{lesson.xp} XP on completion</Text>
                 </View>
             </View>
         </TouchableOpacity>
@@ -82,8 +88,13 @@ const styles = StyleSheet.create({
         padding: 16,
         justifyContent: 'space-between',
     },
+    pillRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
     pill: {
-        alignSelf: 'flex-start',
         backgroundColor: 'rgba(99,102,241,0.2)',
         borderWidth: 1,
         borderColor: 'rgba(99,102,241,0.3)',
@@ -97,6 +108,17 @@ const styles = StyleSheet.create({
         color: colors.accent2,
         letterSpacing: 0.5,
         textTransform: 'uppercase',
+    },
+    difficultyPill: {
+        borderWidth: 1,
+        borderRadius: radius.full,
+        paddingVertical: 3,
+        paddingHorizontal: 10,
+    },
+    difficultyText: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.3,
     },
     titleBlock: {},
     title: {
@@ -157,13 +179,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#fff',
     },
-    difficultyDots: {
-        flexDirection: 'row',
-        gap: 5,
-    },
-    dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
+    xpHint: {
+        fontSize: 11,
+        color: colors.text3,
     },
 });

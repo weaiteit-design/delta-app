@@ -62,6 +62,7 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
         setCompleted(true);
     };
 
+
     const handleCopyPrompt = async () => {
         if (lesson.taskPrompt) {
             await Clipboard.setStringAsync(lesson.taskPrompt);
@@ -69,6 +70,22 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
             setTimeout(() => setCopied(false), 2000);
         }
     };
+
+    const difficultyMsg = (() => {
+        if (leveledUpTo) return `You've reached ${leveledUpTo} — incredible progress!`;
+        const d = lesson.difficulty || 2;
+        if (d === 1) return "You've got this! Every expert started as a beginner.";
+        if (d === 3) return "Expert level achieved. That's serious mastery!";
+        return "Nice work! You're building real AI skills.";
+    })();
+
+    const difficultyEmoji = (() => {
+        if (leveledUpTo) return '🚀';
+        const d = lesson.difficulty || 2;
+        if (d === 1) return '🌱';
+        if (d === 3) return '🔥';
+        return '⚡';
+    })();
 
     if (completed) {
         return (
@@ -90,11 +107,15 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
                     </View>
                 )}
 
-                <Text style={[styles.completedTitle, leveledUpTo && styles.completedTitleLarge]}>
-                    {leveledUpTo ? `You are a ${leveledUpTo}!` : 'Lesson Complete!'}
+                <Text style={[styles.completedTitle, leveledUpTo ? styles.completedTitleLarge : null]}>
+                    {leveledUpTo ? `You are a ${leveledUpTo}!` : `${difficultyEmoji} Lesson Complete!`}
                 </Text>
 
                 <Text style={styles.completedSubtitle}>{lesson.title}</Text>
+
+                <View style={styles.encourageBox}>
+                    <Text style={styles.encourageBoxText}>{difficultyMsg}</Text>
+                </View>
 
                 <View style={styles.xpCard}>
                     <Text style={styles.xpLabel}>XP GAINED</Text>
@@ -108,7 +129,7 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
                     style={styles.backToAppBtn}
                     activeOpacity={0.85}
                 >
-                    <Text style={styles.backToAppText}>Back to App</Text>
+                    <Text style={styles.backToAppText}>Back to Learning</Text>
                 </TouchableOpacity>
             </ScrollView>
         );
@@ -170,7 +191,12 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
                     <View style={styles.stepNumCircle}>
                         <Text style={styles.stepNumText}>{currentStep + 1}</Text>
                     </View>
-                    <Text style={styles.stepLabel}>STEP {currentStep + 1}</Text>
+                    <View>
+                        <Text style={styles.stepLabel}>STEP {currentStep + 1} OF {totalSteps}</Text>
+                        {isLastStep && (
+                            <Text style={styles.lastStepHint}>Final step — you're almost there!</Text>
+                        )}
+                    </View>
                 </View>
                 <Text style={styles.stepContent}>{steps[currentStep]}</Text>
             </View>
@@ -341,6 +367,25 @@ const styles = StyleSheet.create({
         maxWidth: 280,
         lineHeight: 24,
     },
+    encourageBox: {
+        backgroundColor: 'rgba(99,102,241,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.25)',
+        borderRadius: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        marginBottom: 24,
+        width: '100%',
+        maxWidth: 320,
+        alignItems: 'center',
+    },
+    encourageBoxText: {
+        fontSize: 14,
+        color: colors.accent2,
+        textAlign: 'center',
+        lineHeight: 21,
+        fontWeight: '500',
+    },
     xpCard: {
         alignItems: 'center',
         gap: 8,
@@ -502,6 +547,11 @@ const styles = StyleSheet.create({
         color: colors.text1,
         textTransform: 'uppercase',
         letterSpacing: 1,
+    },
+    lastStepHint: {
+        fontSize: 11,
+        color: colors.green,
+        marginTop: 2,
     },
     stepContent: {
         fontSize: 15,

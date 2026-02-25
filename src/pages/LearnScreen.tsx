@@ -76,10 +76,28 @@ function getLearningPath() {
     return { ...path, currentStep: step, totalSteps: path.steps.length };
 }
 
+const DIFF_FILTERS = [
+    { key: 'all',          label: 'All Levels', emoji: '🌟' },
+    { key: 'beginner',     label: 'Beginner',   emoji: '🌱' },
+    { key: 'intermediate', label: 'Intermediate', emoji: '⚡' },
+    { key: 'advanced',     label: 'Advanced',   emoji: '🔥' },
+] as const;
+
+type DiffFilter = 'all' | 'beginner' | 'intermediate' | 'advanced';
+
+function difficultyMatches(lessonDifficulty: number, filter: DiffFilter): boolean {
+    if (filter === 'all') return true;
+    if (filter === 'beginner') return lessonDifficulty === 1;
+    if (filter === 'intermediate') return lessonDifficulty === 2;
+    if (filter === 'advanced') return lessonDifficulty === 3;
+    return true;
+}
+
 export function LearnScreen({ onStartLesson }: LearnScreenProps) {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [quickLessons, setQuickLessons] = useState<LessonData[]>([]);
     const [categoryLessons, setCategoryLessons] = useState<Record<string, LessonData[]>>({});
+    const [diffFilter, setDiffFilter] = useState<DiffFilter>('all');
 
     const [loadingQuick, setLoadingQuick] = useState(true);
     const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
@@ -170,6 +188,27 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
                 </Text>
             </View>
 
+            {/* Difficulty Filter Tabs */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.diffFilters}
+            >
+                {DIFF_FILTERS.map(f => (
+                    <TouchableOpacity
+                        key={f.key}
+                        onPress={() => setDiffFilter(f.key as DiffFilter)}
+                        style={[styles.diffChip, diffFilter === f.key && styles.diffChipActive]}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.diffChipEmoji}>{f.emoji}</Text>
+                        <Text style={[styles.diffChipText, diffFilter === f.key && styles.diffChipTextActive]}>
+                            {f.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+
             {/* Learning Path Card */}
             <TouchableOpacity
                 onPress={() => onStartLesson(pathLesson)}
@@ -257,13 +296,23 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
             {/* Quick Lessons */}
             <SectionLabel>⚡ QUICK LESSONS — 2 MIN OR LESS</SectionLabel>
 
+            {diffFilter !== 'all' && (
+                <View style={styles.encourageRow}>
+                    <Text style={styles.encourageText}>
+                        {diffFilter === 'beginner' && 'Perfect starting point — no experience needed!'}
+                        {diffFilter === 'intermediate' && 'Level up your skills with these focused lessons.'}
+                        {diffFilter === 'advanced' && 'Expert-level techniques for serious practitioners.'}
+                    </Text>
+                </View>
+            )}
+
             {loadingQuick ? (
                 <View style={styles.skeletonContainer}>
                     <View style={styles.skeletonCard} />
                     <View style={styles.skeletonCard} />
                 </View>
-            ) : quickLessons.length > 0 ? (
-                quickLessons.map((lesson) => (
+            ) : quickLessons.filter(l => difficultyMatches(l.difficulty, diffFilter)).length > 0 ? (
+                quickLessons.filter(l => difficultyMatches(l.difficulty, diffFilter)).map((lesson) => (
                     <LessonCard
                         key={lesson.id}
                         lesson={lesson}
@@ -271,7 +320,11 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
                     />
                 ))
             ) : (
-                <Text style={styles.emptyText}>Could not load quick lessons. Please try again.</Text>
+                <Text style={styles.emptyText}>
+                    {diffFilter !== 'all'
+                        ? `No ${diffFilter} lessons loaded yet — try "All Levels".`
+                        : 'Could not load quick lessons. Please try again.'}
+                </Text>
             )}
 
             <View style={{ height: 20 }} />
@@ -402,5 +455,52 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         color: colors.text3,
         fontSize: 13,
+    },
+    diffFilters: {
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+        gap: 8,
+        flexDirection: 'row',
+    },
+    diffChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingVertical: 7,
+        paddingHorizontal: 14,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.full,
+    },
+    diffChipActive: {
+        backgroundColor: 'rgba(99,102,241,0.15)',
+        borderColor: 'rgba(99,102,241,0.4)',
+    },
+    diffChipEmoji: {
+        fontSize: 13,
+    },
+    diffChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.text3,
+    },
+    diffChipTextActive: {
+        color: colors.accent2,
+    },
+    encourageRow: {
+        marginHorizontal: 20,
+        marginBottom: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(99,102,241,0.08)',
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.18)',
+    },
+    encourageText: {
+        fontSize: 12,
+        color: colors.accent2,
+        lineHeight: 18,
     },
 });
