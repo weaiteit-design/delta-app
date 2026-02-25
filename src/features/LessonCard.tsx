@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Clock, Play } from 'lucide-react';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Play, Clock } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 interface LessonCardLesson {
     id: string;
@@ -17,160 +19,151 @@ interface LessonCardProps {
 }
 
 export function LessonCard({ lesson, onStartLesson }: LessonCardProps) {
-    const [pressed, setPressed] = useState(false);
-
     return (
-        <div
-            onMouseDown={() => setPressed(true)}
-            onMouseUp={() => setPressed(false)}
-            onMouseLeave={() => setPressed(false)}
-            style={{
-                margin: '0 20px 16px',
-                borderRadius: 28,
-                border: '1px solid var(--border-2)',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                transform: pressed ? 'scale(0.98)' : 'scale(1)',
-                transition: 'transform 0.15s ease',
-            }}
+        <TouchableOpacity
+            style={styles.card}
+            onPress={onStartLesson}
+            activeOpacity={0.9}
         >
             {/* Header Zone */}
-            <div style={{
-                height: 120,
-                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-                padding: '16px 18px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                position: 'relative',
-                overflow: 'hidden',
-            }}>
-                {/* Radial glow */}
-                <div style={{
-                    position: 'absolute',
-                    top: -40,
-                    right: -40,
-                    width: 160,
-                    height: 160,
-                    background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)',
-                    borderRadius: '50%',
-                }} />
-
+            <View style={styles.header}>
                 {/* Pill */}
-                <div style={{
-                    alignSelf: 'flex-start',
-                    background: 'rgba(99,102,241,0.2)',
-                    border: '1px solid rgba(99,102,241,0.3)',
-                    borderRadius: 20,
-                    padding: '3px 10px',
-                }}>
-                    <span style={{
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: 'var(--accent-2)',
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '0.05em',
-                    }}>
-                        {lesson.pill}
-                    </span>
-                </div>
+                <View style={styles.pill}>
+                    <Text style={styles.pillText}>{lesson.pill}</Text>
+                </View>
 
-                {/* Title */}
-                <div>
-                    <div style={{
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 17,
-                        fontWeight: 700,
-                        color: '#fff',
-                        lineHeight: 1.3,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical' as const,
-                        overflow: 'hidden',
-                        marginBottom: 6,
-                    }}>
-                        {lesson.title}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Clock size={12} color="rgba(255,255,255,0.5)" />
-                            <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: 11,
-                                color: 'rgba(255,255,255,0.5)',
-                            }}>{lesson.duration}</span>
-                        </div>
-                        <div style={{
-                            background: 'var(--yellow-bg)',
-                            borderRadius: 10,
-                            padding: '1px 7px',
-                        }}>
-                            <span style={{
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: 'var(--yellow)',
-                            }}>+{lesson.xp} XP</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                {/* Title + meta */}
+                <View style={styles.titleBlock}>
+                    <Text style={styles.title} numberOfLines={2}>{lesson.title}</Text>
+                    <View style={styles.metaRow}>
+                        <Clock size={12} color="rgba(255,255,255,0.5)" />
+                        <Text style={styles.duration}>{lesson.duration}</Text>
+                        <View style={styles.xpBadge}>
+                            <Text style={styles.xpText}>+{lesson.xp} XP</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
 
             {/* Body Zone */}
-            <div style={{
-                padding: '14px 18px 16px',
-                background: 'var(--surface)',
-            }}>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: 'var(--text-2)',
-                    lineHeight: 1.5,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical' as const,
-                    overflow: 'hidden',
-                    marginBottom: 14,
-                }}>
-                    {lesson.preview}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onStartLesson?.();
-                        }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            background: 'var(--accent)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 14,
-                            padding: '8px 16px',
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'opacity 0.2s',
-                        }}>
-                        <Play size={14} fill="#fff" />
-                        Start Lesson
-                    </button>
-                    <div style={{ display: 'flex', gap: 5 }}>
+            <View style={styles.body}>
+                <Text style={styles.preview} numberOfLines={3}>{lesson.preview}</Text>
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.startBtn} onPress={onStartLesson} activeOpacity={0.8}>
+                        <Play size={14} color="#fff" fill="#fff" />
+                        <Text style={styles.startBtnText}>Start Lesson</Text>
+                    </TouchableOpacity>
+                    <View style={styles.difficultyDots}>
                         {[1, 2, 3].map((dot) => (
-                            <div key={dot} style={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                background: dot <= lesson.difficulty ? 'var(--accent-2)' : 'var(--surface-3)',
-                            }} />
+                            <View
+                                key={dot}
+                                style={[styles.dot, { backgroundColor: dot <= lesson.difficulty ? colors.accent2 : colors.surface3 }]}
+                            />
                         ))}
-                    </div>
-                </div>
-            </div>
-        </div>
+                    </View>
+                </View>
+            </View>
+        </TouchableOpacity>
     );
 }
+
+const styles = StyleSheet.create({
+    card: {
+        marginHorizontal: 20,
+        marginBottom: 16,
+        borderRadius: radius.xxl,
+        borderWidth: 1,
+        borderColor: colors.border2,
+        overflow: 'hidden',
+    },
+    header: {
+        height: 120,
+        backgroundColor: '#16213e',
+        padding: 16,
+        justifyContent: 'space-between',
+    },
+    pill: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(99,102,241,0.2)',
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.3)',
+        borderRadius: radius.full,
+        paddingVertical: 3,
+        paddingHorizontal: 10,
+    },
+    pillText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: colors.accent2,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    titleBlock: {},
+    title: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#fff',
+        lineHeight: 22,
+        marginBottom: 6,
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    duration: {
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.5)',
+        marginLeft: 4,
+    },
+    xpBadge: {
+        backgroundColor: colors.yellowBg,
+        borderRadius: 10,
+        paddingVertical: 1,
+        paddingHorizontal: 7,
+        marginLeft: 4,
+    },
+    xpText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.yellow,
+    },
+    body: {
+        padding: 14,
+        backgroundColor: colors.surface,
+    },
+    preview: {
+        fontSize: 13,
+        color: colors.text2,
+        lineHeight: 19,
+        marginBottom: 14,
+    },
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    startBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: colors.accent,
+        borderRadius: 14,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    startBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    difficultyDots: {
+        flexDirection: 'row',
+        gap: 5,
+    },
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+});

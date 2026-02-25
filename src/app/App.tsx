@@ -1,52 +1,120 @@
 import React, { useState, useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import { contentPipeline } from '../entities/news/contentPipeline';
-import { BottomNav, TabName } from '../shared/ui/BottomNav';
+import { supabase } from '../shared/api/supabaseClient';
+import { storageService } from '../entities/user/storageService';
+import { ToolData, VerifiedUpdate, LessonData } from '../shared/types/types';
+
+// Screens
 import { HomeScreen } from '../pages/HomeScreen';
 import { LearnScreen } from '../pages/LearnScreen';
 import { UpdatesScreen } from '../pages/UpdatesScreen';
 import { ToolsScreen } from '../pages/ToolsScreen';
 import { ChatScreen } from '../pages/ChatScreen';
+import { LibraryScreen } from '../pages/LibraryScreen';
 import { ProfileScreen } from '../pages/ProfileScreen';
 import { PreferencesScreen } from '../pages/PreferencesScreen';
 import { LessonViewer } from '../pages/LessonViewer';
 import { ToolDetail } from '../pages/ToolDetail';
 import { ToolGuide } from '../pages/ToolGuide';
 import { ArticleReader } from '../pages/ArticleReader';
-import { LibraryScreen } from '../pages/LibraryScreen';
 import { AuthScreen } from '../pages/AuthScreen';
-import { supabase } from '../shared/api/supabaseClient';
-import { storageService } from '../entities/user/storageService';
-import { ToolData, VerifiedUpdate, LessonData } from '../shared/types/types';
-import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 
-// Navigation overlay types
-type OverlayScreen =
-    | { type: 'none' }
-    | { type: 'profile' }
-    | { type: 'preferences' }
-    | { type: 'lesson'; lesson: LessonData }
-    | { type: 'tool'; tool: ToolData }
-    | { type: 'guide'; tool: ToolData }
-    | { type: 'article'; article: VerifiedUpdate };
+// Navigation param types
+export type RootStackParamList = {
+    MainTabs: undefined;
+    Auth: undefined;
+    Profile: undefined;
+    Preferences: undefined;
+    Lesson: { lesson: LessonData };
+    ToolDetail: { tool: ToolData };
+    ToolGuide: { tool: ToolData };
+    ArticleReader: { article: VerifiedUpdate };
+};
+
+export type TabParamList = {
+    Home: undefined;
+    Learn: undefined;
+    Updates: undefined;
+    Tools: undefined;
+    Chat: undefined;
+    Library: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
+
+function MainTabs() {
+    return (
+        <Tab.Navigator
+            screenOptions={{
+                headerShown: false,
+                tabBarStyle: {
+                    backgroundColor: '#0A0A0F',
+                    borderTopColor: 'rgba(255,255,255,0.06)',
+                    height: 80,
+                    paddingBottom: 20,
+                },
+                tabBarActiveTintColor: '#818CF8',
+                tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
+                tabBarLabelStyle: {
+                    fontSize: 10,
+                    fontWeight: '600',
+                },
+            }}
+        >
+            <Tab.Screen
+                name="Home"
+                component={HomeScreen}
+                options={{ tabBarLabel: 'Home', tabBarIcon: () => null }}
+            />
+            <Tab.Screen
+                name="Updates"
+                component={UpdatesScreen}
+                options={{ tabBarLabel: 'Updates', tabBarIcon: () => null }}
+            />
+            <Tab.Screen
+                name="Learn"
+                component={LearnScreen}
+                options={{ tabBarLabel: 'Learn', tabBarIcon: () => null }}
+            />
+            <Tab.Screen
+                name="Tools"
+                component={ToolsScreen}
+                options={{ tabBarLabel: 'Tools', tabBarIcon: () => null }}
+            />
+            <Tab.Screen
+                name="Chat"
+                component={ChatScreen}
+                options={{ tabBarLabel: 'Chat', tabBarIcon: () => null }}
+            />
+            <Tab.Screen
+                name="Library"
+                component={LibraryScreen}
+                options={{ tabBarLabel: 'Library', tabBarIcon: () => null }}
+            />
+        </Tab.Navigator>
+    );
+}
 
 export default function App() {
-    const [activeTab, setActiveTab] = useState<TabName>('home');
-    const [overlay, setOverlay] = useState<OverlayScreen>({ type: 'none' });
     const [session, setSession] = useState<any>(null);
     const [authChecking, setAuthChecking] = useState(true);
 
-    React.useEffect(() => {
-        // Initial session check
+    useEffect(() => {
         if (supabase.auth) {
             supabase.auth.getSession().then(({ data: { session } }) => {
                 setSession(session);
                 setAuthChecking(false);
             }).catch(() => setAuthChecking(false));
 
-            // Listen for auth changes
-            const {
-                data: { subscription },
-            } = supabase.auth.onAuthStateChange((_event, session) => {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
                 setSession(session);
                 if (session?.user) {
                     storageService.syncFromCloud();
@@ -60,121 +128,51 @@ export default function App() {
         }
     }, []);
 
-    // Foreground refresh logic
+    // Foreground refresh (AppState replaces document.visibilitychange)
     useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                console.log('[App] Foregrounded — checking for updates');
+        const handleAppState = (nextState: AppStateStatus) => {
+            if (nextState === 'active') {
                 contentPipeline.getUpdates().catch(() => { });
             }
         };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+        const sub = AppState.addEventListener('change', handleAppState);
+        return () => sub.remove();
     }, []);
 
-    // Navigation callbacks
-    const nav = {
-        openProfile: () => setOverlay({ type: 'profile' }),
-        openTool: (tool: ToolData) => setOverlay({ type: 'tool', tool }),
-        openArticle: (article: VerifiedUpdate) => setOverlay({ type: 'article', article }),
-        openLesson: (lesson: LessonData) => setOverlay({ type: 'lesson', lesson }),
-        goBack: () => setOverlay({ type: 'none' }),
-    };
-
-    const renderScreen = () => {
-        // Overlay screens (stacked on top)
-        switch (overlay.type) {
-            case 'profile':
-                return (
-                    <ProfileScreen
-                        onClose={nav.goBack}
-                        onOpenPreferences={() => setOverlay({ type: 'preferences' })}
-                    />
-                );
-            case 'preferences':
-                return <PreferencesScreen onClose={nav.goBack} />;
-            case 'lesson':
-                return <LessonViewer lesson={overlay.lesson} onBack={nav.goBack} />;
-            case 'tool':
-                return (
-                    <ToolDetail
-                        tool={overlay.tool}
-                        onBack={nav.goBack}
-                        onStartLesson={(lesson: LessonData) => setOverlay({ type: 'lesson', lesson })}
-                        onOpenGuide={(tool) => setOverlay({ type: 'guide', tool })}
-                    />
-                );
-            case 'guide':
-                return (
-                    <ToolGuide
-                        tool={overlay.tool}
-                        onBack={nav.goBack}
-                        onStartLesson={(lesson: LessonData) => setOverlay({ type: 'lesson', lesson })}
-                    />
-                );
-            case 'article':
-                return (
-                    <ArticleReader
-                        article={overlay.article}
-                        onBack={nav.goBack}
-                        onStartLesson={(lesson: LessonData) => setOverlay({ type: 'lesson', lesson })}
-                    />
-                );
-        }
-
-        // Tab screens
-        switch (activeTab) {
-            case 'home':
-                return <HomeScreen onProfile={nav.openProfile} onSelectTool={nav.openTool} onSelectUpdate={nav.openArticle} onStartLesson={nav.openLesson} />;
-            case 'learn':
-                return <LearnScreen onStartLesson={nav.openLesson} />;
-            case 'updates':
-                return <UpdatesScreen onSelectUpdate={nav.openArticle} onStartLesson={nav.openLesson} />;
-            case 'tools':
-                return <ToolsScreen onSelectTool={nav.openTool} />;
-            case 'chat':
-                return <ChatScreen onStartLesson={nav.openLesson} onSelectTool={nav.openTool} />;
-            case 'library':
-                return <LibraryScreen onSelectUpdate={nav.openArticle} onSelectTool={nav.openTool} />;
-            default:
-                return <HomeScreen onProfile={nav.openProfile} onSelectTool={nav.openTool} onSelectUpdate={nav.openArticle} onStartLesson={nav.openLesson} />;
-        }
-    };
-
     if (authChecking) {
-        return (
-            <div className="phone-frame" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-                <div style={{ color: 'var(--text-3)', fontFamily: "'DM Sans', sans-serif" }}>Loading...</div>
-            </div>
-        );
+        // Handled by splash screen — return null until ready
+        return null;
     }
 
-    if (!session && supabase.auth) {
-        return (
-            <div className="phone-frame">
-                <AuthScreen onLogin={() => {
-                    // Handled automatically by onAuthStateChange listener if using Supabase credentials
-                    if (!supabase.auth) setSession(true); // fallback for local-only mock mode
-                }} />
-            </div>
-        );
-    }
+    const isLoggedIn = session || !supabase.auth;
 
     return (
-        <div className="phone-frame">
-            <ErrorBoundary fallbackMessage="This screen encountered an error. Tap below to try again.">
-                {renderScreen()}
-            </ErrorBoundary>
-            {overlay.type === 'none' && (
-                <BottomNav
-                    active={activeTab}
-                    onSelect={(tab) => {
-                        setOverlay({ type: 'none' });
-                        setActiveTab(tab);
-                    }}
-                />
-            )}
-        </div>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+                <NavigationContainer>
+                    <Stack.Navigator
+                        screenOptions={{
+                            headerShown: false,
+                            contentStyle: { backgroundColor: '#0A0A0F' },
+                            animation: 'slide_from_right',
+                        }}
+                    >
+                        {!isLoggedIn ? (
+                            <Stack.Screen name="Auth" component={AuthScreen} />
+                        ) : (
+                            <>
+                                <Stack.Screen name="MainTabs" component={MainTabs} />
+                                <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_bottom' }} />
+                                <Stack.Screen name="Preferences" component={PreferencesScreen} options={{ animation: 'slide_from_bottom' }} />
+                                <Stack.Screen name="Lesson" component={LessonViewer} />
+                                <Stack.Screen name="ToolDetail" component={ToolDetail} />
+                                <Stack.Screen name="ToolGuide" component={ToolGuide} />
+                                <Stack.Screen name="ArticleReader" component={ArticleReader} />
+                            </>
+                        )}
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </SafeAreaProvider>
+        </GestureHandlerRootView>
     );
 }

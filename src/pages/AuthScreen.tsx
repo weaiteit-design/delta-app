@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
+import {
+    View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { supabase, IS_CONFIGURED } from '../shared/api/supabaseClient';
+import { colors, radius } from '../shared/platform/theme';
 
 export function AuthScreen({ onLogin }: { onLogin: () => void }) {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -8,30 +12,18 @@ export function AuthScreen({ onLogin }: { onLogin: () => void }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         setError('');
-
         if (!IS_CONFIGURED) {
-            // Bypass auth if no Supabase credentials
             onLogin();
             return;
         }
-
         setLoading(true);
-
         try {
             if (isSignUp) {
-                const { error: signUpError } = await supabase.auth.signUp({
-                    email,
-                    password,
-                });
+                const { error: signUpError } = await supabase.auth.signUp({ email, password });
                 if (signUpError) throw signUpError;
-                // Auto login or show success message depending on email confirmation settings
-                const { error: loginError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
+                const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
                 if (loginError) {
                     if (loginError.message.includes('Email not confirmed')) {
                         setError('Please check your email to confirm your account.');
@@ -42,10 +34,7 @@ export function AuthScreen({ onLogin }: { onLogin: () => void }) {
                     onLogin();
                 }
             } else {
-                const { error: signInError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
                 if (signInError) throw signInError;
                 onLogin();
             }
@@ -56,157 +45,189 @@ export function AuthScreen({ onLogin }: { onLogin: () => void }) {
         }
     };
 
+    const isDisabled = loading || !email || !password;
+
     return (
-        <div style={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: '0 24px',
-            background: 'var(--bg)',
-        }}>
-            <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                <div style={{
-                    width: 64,
-                    height: 64,
-                    background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-                    borderRadius: 16,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 24px',
-                }}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
-                </div>
-                <h1 style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 28,
-                    fontWeight: 700,
-                    color: 'var(--text-1)',
-                    marginBottom: 8,
-                }}>
-                    Welcome to Delta
-                </h1>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 16,
-                    color: 'var(--text-3)',
-                }}>
-                    Your personalized AI intelligence feed.
-                </p>
-            </div>
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            {/* Logo / Title */}
+            <View style={styles.header}>
+                <View style={styles.logoBox}>
+                    <Text style={styles.logoText}>△</Text>
+                </View>
+                <Text style={styles.title}>Welcome to Delta</Text>
+                <Text style={styles.subtitle}>Your personalized AI intelligence feed.</Text>
+            </View>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                    <label style={{ display: 'block', marginBottom: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
-                        Email
-                    </label>
-                    <input
-                        type="email"
+            {/* Form */}
+            <View style={styles.form}>
+                <View style={styles.fieldWrapper}>
+                    <Text style={styles.label}>Email</Text>
+                    <TextInput
+                        style={styles.input}
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChangeText={setEmail}
                         placeholder="you@example.com"
-                        required
-                        style={{
-                            width: '100%',
-                            padding: '14px 16px',
-                            background: 'var(--surface-2)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 12,
-                            color: 'var(--text-1)',
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 15,
-                            outline: 'none',
-                        }}
+                        placeholderTextColor={colors.text3}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
                     />
-                </div>
-                <div>
-                    <label style={{ display: 'block', marginBottom: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
-                        Password
-                    </label>
-                    <input
-                        type="password"
+                </View>
+                <View style={styles.fieldWrapper}>
+                    <Text style={styles.label}>Password</Text>
+                    <TextInput
+                        style={styles.input}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChangeText={setPassword}
                         placeholder="••••••••"
-                        required
-                        style={{
-                            width: '100%',
-                            padding: '14px 16px',
-                            background: 'var(--surface-2)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 12,
-                            color: 'var(--text-1)',
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 15,
-                            outline: 'none',
-                        }}
+                        placeholderTextColor={colors.text3}
+                        secureTextEntry
+                        autoCapitalize="none"
+                        returnKeyType="go"
+                        onSubmitEditing={handleSubmit}
                     />
-                </div>
+                </View>
 
-                {error && (
-                    <div style={{
-                        padding: 12,
-                        background: 'rgba(248, 113, 113, 0.1)',
-                        border: '1px solid rgba(248, 113, 113, 0.2)',
-                        borderRadius: 8,
-                        color: 'var(--red)',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13,
-                        textAlign: 'center',
-                    }}>
-                        {error}
-                    </div>
+                {!!error && (
+                    <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>{error}</Text>
+                    </View>
                 )}
 
-                <button
-                    type="submit"
-                    disabled={loading || !email || !password}
-                    style={{
-                        padding: '16px',
-                        background: 'var(--text-1)',
-                        color: 'var(--bg)',
-                        border: 'none',
-                        borderRadius: 12,
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 16,
-                        fontWeight: 700,
-                        cursor: (loading || !email || !password) ? 'not-allowed' : 'pointer',
-                        opacity: (loading || !email || !password) ? 0.7 : 1,
-                        marginTop: 8,
-                        transition: 'opacity 0.2s',
-                    }}
+                <TouchableOpacity
+                    onPress={handleSubmit}
+                    disabled={isDisabled}
+                    style={[styles.submitBtn, isDisabled && styles.submitBtnDisabled]}
                 >
-                    {loading ? 'Processing...' : (isSignUp ? 'Create Account' : 'Sign In')}
-                </button>
-            </form>
+                    <Text style={styles.submitBtnText}>
+                        {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
-            <div style={{ textAlign: 'center', marginTop: 24 }}>
-                <button
-                    onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-3)',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 14,
-                        cursor: 'pointer',
-                    }}
-                >
-                    {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-                </button>
-            </div>
+            {/* Toggle sign-in / sign-up */}
+            <View style={styles.toggleRow}>
+                <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setError(''); }}>
+                    <Text style={styles.toggleText}>
+                        {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
             {!IS_CONFIGURED && (
-                <div style={{ textAlign: 'center', marginTop: 40 }}>
-                    <p style={{ color: 'var(--yellow)', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
-                        Running in local-only mode (No Supabase keys).<br />
-                        Sign in will bypass authentication.
-                    </p>
-                </div>
+                <View style={styles.localModeNotice}>
+                    <Text style={styles.localModeText}>
+                        Running in local-only mode (No Supabase keys).{'\n'}Sign in will bypass authentication.
+                    </Text>
+                </View>
             )}
-        </div>
+        </KeyboardAvoidingView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 40,
+    },
+    logoBox: {
+        width: 64,
+        height: 64,
+        borderRadius: 16,
+        backgroundColor: colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+    },
+    logoText: {
+        fontSize: 28,
+        color: '#fff',
+        fontWeight: '700',
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: colors.text1,
+        marginBottom: 8,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: colors.text3,
+    },
+    form: {
+        gap: 16,
+    },
+    fieldWrapper: {
+        marginBottom: 4,
+    },
+    label: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: colors.text2,
+        marginBottom: 8,
+    },
+    input: {
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.md,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        fontSize: 15,
+        color: colors.text1,
+    },
+    errorBox: {
+        padding: 12,
+        backgroundColor: 'rgba(248,113,113,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(248,113,113,0.2)',
+        borderRadius: radius.sm,
+    },
+    errorText: {
+        fontSize: 13,
+        color: colors.red,
+        textAlign: 'center',
+    },
+    submitBtn: {
+        paddingVertical: 16,
+        backgroundColor: colors.text1,
+        borderRadius: radius.md,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    submitBtnDisabled: {
+        opacity: 0.7,
+    },
+    submitBtnText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.bg,
+    },
+    toggleRow: {
+        alignItems: 'center',
+        marginTop: 24,
+    },
+    toggleText: {
+        fontSize: 14,
+        color: colors.text3,
+    },
+    localModeNotice: {
+        alignItems: 'center',
+        marginTop: 40,
+    },
+    localModeText: {
+        fontSize: 12,
+        color: colors.yellow,
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+});

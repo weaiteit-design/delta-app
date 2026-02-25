@@ -1,9 +1,10 @@
 // ============================================
 // Delta — Content Cache Utility
-// Handles localStorage persistence for news and classification
+// Handles platform-agnostic persistence for news and classification
 // ============================================
 
 import { RawContentItem, VerifiedUpdate, PipelineStats } from '../../shared/types/types';
+import platformStorage from '../../shared/platform/storage';
 
 export const CACHE_TTL = {
     NEWS: 60 * 60 * 1000, // 1 hour (as requested for hourly updates)
@@ -32,7 +33,7 @@ export function deduplicateItems(items: RawContentItem[]): RawContentItem[] {
  */
 export function getClassifiedItem(contentHash: string): VerifiedUpdate | null {
     try {
-        const cacheRaw = localStorage.getItem(STORAGE_KEYS.CLASSIFIED);
+        const cacheRaw = platformStorage.getItem(STORAGE_KEYS.CLASSIFIED);
         if (!cacheRaw) return null;
         const cache = JSON.parse(cacheRaw) as Record<string, { update: VerifiedUpdate; expiresAt: number }>;
         const entry = cache[contentHash];
@@ -50,7 +51,7 @@ export function getClassifiedItem(contentHash: string): VerifiedUpdate | null {
  */
 export function batchSetClassifiedItems(items: { contentHash: string; update: VerifiedUpdate }[]): void {
     try {
-        const cacheRaw = localStorage.getItem(STORAGE_KEYS.CLASSIFIED);
+        const cacheRaw = platformStorage.getItem(STORAGE_KEYS.CLASSIFIED);
         const cache = cacheRaw ? JSON.parse(cacheRaw) : {};
 
         const expiresAt = Date.now() + CACHE_TTL.CLASSIFIED;
@@ -58,7 +59,7 @@ export function batchSetClassifiedItems(items: { contentHash: string; update: Ve
             cache[contentHash] = { update, expiresAt };
         });
 
-        localStorage.setItem(STORAGE_KEYS.CLASSIFIED, JSON.stringify(cache));
+        platformStorage.setItem(STORAGE_KEYS.CLASSIFIED, JSON.stringify(cache));
     } catch (e) {
         console.warn('[Cache] Batch set failed:', e);
     }
@@ -69,7 +70,7 @@ export function batchSetClassifiedItems(items: { contentHash: string; update: Ve
  */
 export function savePipelineStats(stats: PipelineStats): void {
     try {
-        localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
+        platformStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
     } catch (e) { }
 }
 
@@ -78,7 +79,7 @@ export function savePipelineStats(stats: PipelineStats): void {
  */
 export function getPipelineStats(): PipelineStats {
     try {
-        const stats = localStorage.getItem(STORAGE_KEYS.STATS);
+        const stats = platformStorage.getItem(STORAGE_KEYS.STATS);
         return stats ? JSON.parse(stats) : {
             lastFetchAt: '',
             sourceCounts: {},
@@ -108,7 +109,7 @@ export function getPipelineStats(): PipelineStats {
  */
 export function evictStaleCaches(): void {
     try {
-        const cacheRaw = localStorage.getItem(STORAGE_KEYS.CLASSIFIED);
+        const cacheRaw = platformStorage.getItem(STORAGE_KEYS.CLASSIFIED);
         if (!cacheRaw) return;
         const cache = JSON.parse(cacheRaw) as Record<string, { expiresAt: number }>;
         const now = Date.now();
@@ -124,7 +125,7 @@ export function evictStaleCaches(): void {
         });
 
         if (evicted > 0) {
-            localStorage.setItem(STORAGE_KEYS.CLASSIFIED, JSON.stringify(fresh));
+            platformStorage.setItem(STORAGE_KEYS.CLASSIFIED, JSON.stringify(fresh));
         }
     } catch (e) { }
 }

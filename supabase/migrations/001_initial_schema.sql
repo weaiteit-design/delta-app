@@ -1,367 +1,349 @@
 -- ============================================================
--- Delta AI — Initial Database Schema
--- Migration 001: All 18 tables across 4 domains
--- Run in Supabase SQL Editor
+-- Delta — Initial Database Schema
+-- PostgreSQL 15 via Supabase
 -- ============================================================
 
--- Extensions
+-- ---- Extensions ----
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS vector;         -- pgvector for semantic search
-CREATE EXTENSION IF NOT EXISTS pg_trgm;        -- fuzzy text search
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "vector";     -- pgvector for semantic search
 
 -- ============================================================
 -- DOMAIN 1: TOOLS
 -- ============================================================
 
--- Organisations (OpenAI, Anthropic, Google, etc.)
-CREATE TABLE IF NOT EXISTS organisations (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  slug         TEXT UNIQUE NOT NULL,
-  name         TEXT NOT NULL,
-  logo_url     TEXT,
-  website_url  TEXT,
-  country_code CHAR(2),
-  tool_count   INTEGER DEFAULT 0,
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE organisations (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug        TEXT UNIQUE NOT NULL,
+    name        TEXT NOT NULL,
+    logo_url    TEXT,
+    website_url TEXT,
+    country_code TEXT,
+    tool_count  INT DEFAULT 0,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tools — core table (TAAFT-style + Delta extensions)
--- Note: embed_vector uses 768 dims (Gemini text-embedding-004)
-CREATE TABLE IF NOT EXISTS tools (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  slug            TEXT UNIQUE NOT NULL,
-  name            TEXT NOT NULL,
-  version         TEXT,
-  tagline         TEXT,
-  description     TEXT,
-  logo_url        TEXT,
-  screenshot_url  TEXT,
-  website_url     TEXT NOT NULL,
-  country_code    CHAR(2),
-  org_id          UUID REFERENCES organisations(id),
-  is_verified     BOOLEAN DEFAULT FALSE,
-  is_waitlist     BOOLEAN DEFAULT FALSE,
-  is_nsfw         BOOLEAN DEFAULT FALSE,
-  status          TEXT DEFAULT 'live' CHECK (status IN ('discovered','fetched','enriched','pending_review','live','stale')),
-  views_count     INTEGER DEFAULT 0,
-  rating_avg      NUMERIC(3,2) DEFAULT 0,
-  rating_count    INTEGER DEFAULT 0,
-  comment_count   INTEGER DEFAULT 0,
-  trending_rank   INTEGER,
-  inputs          TEXT[],
-  outputs         TEXT[],
-  platforms       TEXT[],
-  pricing_model   TEXT NOT NULL DEFAULT 'Freemium' CHECK (pricing_model IN ('Free','Freemium','Paid','Free_Trial','Contact')),
-  price_from      NUMERIC(10,2),
-  billing_freq    TEXT,
-  has_free_tier   BOOLEAN GENERATED ALWAYS AS (pricing_model IN ('Free','Freemium')) STORED,
-  -- Delta-specific columns
-  delta_analysis  TEXT,              -- "Delta's take" editorial opinion
-  role_scores     JSONB DEFAULT '{}', -- {"Developer": 8, "Marketer": 6, ...}
-  difficulty_avg  NUMERIC(3,1) DEFAULT 2,
-  best_for        TEXT[],
-  use_cases       TEXT[],
-  -- Semantic search vector (Gemini text-embedding-004 = 768 dims)
-  embed_vector    vector(768),
-  -- Ingestion confidence
-  ingestion_confidence NUMERIC(3,2),
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE tools (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug            TEXT UNIQUE NOT NULL,
+    name            TEXT NOT NULL,
+    version         TEXT,
+    tagline         TEXT,
+    description     TEXT,
+    logo_url        TEXT,
+    screenshot_url  TEXT,
+    website_url     TEXT,
+    country_code    TEXT,
+    org_id          UUID REFERENCES organisations(id) ON DELETE SET NULL,
+
+    -- Flags
+    is_verified     BOOLEAN DEFAULT FALSE,
+    is_waitlist     BOOLEAN DEFAULT FALSE,
+    is_nsfw         BOOLEAN DEFAULT FALSE,
+
+    -- Engagement
+    views_count     INT DEFAULT 0,
+    rating_avg      NUMERIC(3,2) DEFAULT 0,
+    rating_count    INT DEFAULT 0,
+    comment_count   INT DEFAULT 0,
+    trending_rank   INT DEFAULT 9999,
+
+    -- Capability
+    inputs          TEXT[],
+    outputs         TEXT[],
+    platforms       TEXT[],
+
+    -- Pricing
+    pricing_model   TEXT CHECK (pricing_model IN ('free', 'freemium', 'paid', 'free_trial', 'contact')),
+    price_from      NUMERIC(10,2),
+    billing_freq    TEXT,
+    has_free_tier   BOOLEAN GENERATED ALWAYS AS (pricing_model IN ('free', 'freemium', 'free_trial')) STORED,
+
+    -- Delta-specific
+    delta_analysis  TEXT,
+    role_scores     JSONB DEFAULT '{}',
+    difficulty_avg  NUMERIC(3,1) DEFAULT 2,
+    best_for        TEXT[],
+    use_cases       TEXT[],
+
+    -- Semantic search vector (1536 dims, text-embedding-3-small)
+    embed_vector    vector(1536),
+
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Indexes for tools
-CREATE INDEX IF NOT EXISTS idx_tools_slug       ON tools(slug);
-CREATE INDEX IF NOT EXISTS idx_tools_status     ON tools(status);
-CREATE INDEX IF NOT EXISTS idx_tools_trending   ON tools(trending_rank) WHERE trending_rank IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_tools_views      ON tools(views_count DESC);
-CREATE INDEX IF NOT EXISTS idx_tools_pricing    ON tools(pricing_model, has_free_tier);
-CREATE INDEX IF NOT EXISTS idx_tools_created    ON tools(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_tools_vector     ON tools USING ivfflat (embed_vector vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX IF NOT EXISTS idx_tools_trgm_name  ON tools USING gin (name gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_tools_trgm_tag   ON tools USING gin (COALESCE(tagline,'') gin_trgm_ops);
+CREATE INDEX idx_tools_slug ON tools(slug);
+CREATE INDEX idx_tools_trending ON tools(trending_rank ASC);
+CREATE INDEX idx_tools_views ON tools(views_count DESC);
+CREATE INDEX idx_tools_pricing ON tools(pricing_model);
+CREATE INDEX idx_tools_created ON tools(created_at DESC);
+CREATE INDEX idx_tools_name_trgm ON tools USING gin(name gin_trgm_ops);
+CREATE INDEX idx_tools_tagline_trgm ON tools USING gin(COALESCE(tagline, '') gin_trgm_ops);
+CREATE INDEX idx_tools_embed ON tools USING ivfflat(embed_vector vector_cosine_ops) WITH (lists = 100);
 
--- Tasks / Categories (TAAFT taxonomy)
-CREATE TABLE IF NOT EXISTS tasks (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  slug        TEXT UNIQUE NOT NULL,
-  name        TEXT NOT NULL,
-  emoji       TEXT,
-  parent_id   UUID REFERENCES tasks(id),
-  tool_count  INTEGER DEFAULT 0,
-  sort_order  INTEGER DEFAULT 0,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE tasks (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug        TEXT UNIQUE NOT NULL,
+    name        TEXT NOT NULL,
+    emoji       TEXT,
+    parent_id   UUID REFERENCES tasks(id) ON DELETE SET NULL,
+    tool_count  INT DEFAULT 0,
+    sort_order  INT DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_slug   ON tasks(slug);
-
--- Tool-Task junction (many-to-many)
-CREATE TABLE IF NOT EXISTS tool_tasks (
-  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tool_id    UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  task_id    UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  is_primary BOOLEAN DEFAULT FALSE,
-  confidence NUMERIC(3,2),
-  UNIQUE (tool_id, task_id)
+-- Many-to-many: tools ↔ tasks
+CREATE TABLE tool_tasks (
+    tool_id     UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    task_id     UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    is_primary  BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (tool_id, task_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tool_tasks_tool ON tool_tasks(tool_id);
-CREATE INDEX IF NOT EXISTS idx_tool_tasks_task ON tool_tasks(task_id);
-
--- Releases (version history)
-CREATE TABLE IF NOT EXISTS releases (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tool_id      UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  version      TEXT NOT NULL,
-  release_date DATE NOT NULL,
-  changelog    TEXT[],
-  is_latest    BOOLEAN DEFAULT FALSE,
-  created_at   TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (tool_id, version)
+CREATE TABLE releases (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tool_id         UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    version         TEXT NOT NULL,
+    release_date    DATE NOT NULL,
+    changelog       TEXT[],
+    is_latest       BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (tool_id, version)
 );
 
-CREATE INDEX IF NOT EXISTS idx_releases_tool   ON releases(tool_id);
-CREATE INDEX IF NOT EXISTS idx_releases_date   ON releases(release_date DESC);
-CREATE INDEX IF NOT EXISTS idx_releases_latest ON releases(tool_id) WHERE is_latest = TRUE;
-
--- Alternatives (similarity-based)
-CREATE TABLE IF NOT EXISTS alternatives (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tool_id          UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  alt_tool_id      UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  similarity_score NUMERIC(5,4),
-  is_featured      BOOLEAN DEFAULT FALSE,
-  UNIQUE (tool_id, alt_tool_id)
+CREATE TABLE alternatives (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tool_id         UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    alt_tool_id     UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    similarity_score NUMERIC(4,3),
+    is_featured     BOOLEAN DEFAULT FALSE,
+    UNIQUE (tool_id, alt_tool_id)
 );
-
-CREATE INDEX IF NOT EXISTS idx_alternatives_tool ON alternatives(tool_id);
 
 -- ============================================================
 -- DOMAIN 2: USERS & PERSONALISATION
 -- ============================================================
 
--- User profiles (extends Supabase auth.users)
-CREATE TABLE IF NOT EXISTS user_profiles (
-  id             UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  display_name   TEXT,
-  role           TEXT,
-  industry       TEXT,
-  goals          TEXT[] DEFAULT '{}',
-  skill_level    TEXT DEFAULT 'beginner',
-  ai_level       TEXT DEFAULT 'Beginner',
-  preferred_categories TEXT[] DEFAULT '{}',
-  tools_known    TEXT[] DEFAULT '{}',
-  learning_style TEXT,
-  xp             INTEGER DEFAULT 0,
-  streak_days    INTEGER DEFAULT 0,
-  last_active    DATE,
-  level          INTEGER DEFAULT 1,
-  level_title    TEXT DEFAULT 'Observer',
-  avatar_url     TEXT,
-  onboarded_at   TIMESTAMPTZ,
-  lessons_completed INTEGER DEFAULT 0,
-  completed_lesson_ids TEXT[] DEFAULT '{}',
-  saved_article_ids    TEXT[] DEFAULT '{}',
-  created_at     TIMESTAMPTZ DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE user_profiles (
+    id                  UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    display_name        TEXT,
+    role                TEXT,
+    industry            TEXT,
+    goals               TEXT[],
+    ai_level            TEXT,
+    skill_level         TEXT DEFAULT 'beginner',
+    learning_style      TEXT,
+    preferred_categories TEXT[],
+    tools_known         TEXT[],
+    xp                  INT DEFAULT 0,
+    streak_days         INT DEFAULT 0,
+    last_active         TIMESTAMPTZ DEFAULT NOW(),
+    level               INT DEFAULT 1,
+    level_title         TEXT DEFAULT 'Observer',
+    lessons_completed   INT DEFAULT 0,
+    completed_lesson_ids TEXT[],
+    saved_article_ids   TEXT[],
+    saved_tool_ids      TEXT[],
+    onboarding_complete BOOLEAN DEFAULT FALSE,
+    initials            TEXT,
+    avatar_url          TEXT,
+    onboarded_at        TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
--- User tool saves (bookmarks)
-CREATE TABLE IF NOT EXISTS user_tool_saves (
-  id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id   UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-  tool_id   UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  saved_at  TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (user_id, tool_id)
+-- RLS: users can only read/write their own profile
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own profile"
+    ON user_profiles FOR ALL
+    USING (auth.uid() = id);
+
+CREATE TABLE user_tool_saves (
+    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    tool_id     UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    saved_at    TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, tool_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_tool_saves_user ON user_tool_saves(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_tool_saves_tool ON user_tool_saves(tool_id);
+-- Trigger: increment tools.views_count when a tool is saved
+CREATE OR REPLACE FUNCTION increment_tool_views()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE tools SET views_count = views_count + 1 WHERE id = NEW.tool_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- User tool mastery (skill progress)
-CREATE TABLE IF NOT EXISTS user_tool_mastery (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id         UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-  tool_id         UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  mastery_level   INTEGER DEFAULT 0 CHECK (mastery_level BETWEEN 0 AND 3),
-  lessons_done    INTEGER DEFAULT 0,
-  last_practiced  TIMESTAMPTZ,
-  UNIQUE (user_id, tool_id)
+CREATE TRIGGER trg_tool_save_views
+    AFTER INSERT ON user_tool_saves
+    FOR EACH ROW EXECUTE FUNCTION increment_tool_views();
+
+CREATE TABLE user_tool_mastery (
+    user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    tool_id         UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    mastery_level   INT DEFAULT 0 CHECK (mastery_level BETWEEN 0 AND 3),
+    lessons_done    INT DEFAULT 0,
+    last_practiced  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, tool_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_mastery_user ON user_tool_mastery(user_id);
-
--- User task follows (interests)
-CREATE TABLE IF NOT EXISTS user_task_follows (
-  user_id     UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-  task_id     UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  followed_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (user_id, task_id)
+CREATE TABLE user_task_follows (
+    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    task_id     UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    followed_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, task_id)
 );
 
 -- ============================================================
--- DOMAIN 3: CONTENT (LESSONS & NEWS)
+-- DOMAIN 3: CONTENT
 -- ============================================================
 
--- Lessons
-CREATE TABLE IF NOT EXISTS lessons (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tool_id          UUID REFERENCES tools(id) ON DELETE SET NULL,
-  task_id          UUID REFERENCES tasks(id) ON DELETE SET NULL,
-  title            TEXT NOT NULL,
-  summary          TEXT,
-  steps            JSONB,         -- [{step: 1, heading: "...", content: "..."}]
-  difficulty       INTEGER DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 3),
-  duration_mins    INTEGER,
-  xp_reward        INTEGER DEFAULT 50,
-  source_type      TEXT,          -- "youtube", "blog", "manual", "generated"
-  source_url       TEXT,
-  quiz_question    TEXT,
-  quiz_options     TEXT[],
-  quiz_answer_idx  INTEGER,
-  completion_count INTEGER DEFAULT 0,
-  pill_label       TEXT DEFAULT 'LESSON',
-  practice_task    TEXT,
-  task_prompt      TEXT,
-  created_at       TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE lessons (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tool_id         UUID REFERENCES tools(id) ON DELETE SET NULL,
+    task_id         UUID REFERENCES tasks(id) ON DELETE SET NULL,
+    title           TEXT NOT NULL,
+    summary         TEXT,
+    steps           JSONB,   -- array of { step: int, heading: text, content: text }
+    difficulty      INT DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 3),
+    duration_mins   INT DEFAULT 3,
+    xp_reward       INT DEFAULT 35,
+    source_type     TEXT CHECK (source_type IN ('youtube', 'blog', 'manual', 'generated')),
+    source_url      TEXT,
+    quiz_question   TEXT,
+    quiz_options    TEXT[],
+    quiz_answer_idx INT,
+    completion_count INT DEFAULT 0,
+    pill_label      TEXT DEFAULT 'LESSON',
+    practice_task   TEXT,
+    task_prompt     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_lessons_tool ON lessons(tool_id);
-CREATE INDEX IF NOT EXISTS idx_lessons_task ON lessons(task_id);
-CREATE INDEX IF NOT EXISTS idx_lessons_dur  ON lessons(duration_mins);
-CREATE INDEX IF NOT EXISTS idx_lessons_diff ON lessons(difficulty);
+CREATE INDEX idx_lessons_tool ON lessons(tool_id);
+CREATE INDEX idx_lessons_task ON lessons(task_id);
+CREATE INDEX idx_lessons_difficulty ON lessons(difficulty);
 
--- User lesson completions (pivot)
-CREATE TABLE IF NOT EXISTS user_lesson_completions (
-  user_id      UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-  lesson_id    UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
-  completed_at TIMESTAMPTZ DEFAULT NOW(),
-  xp_earned    INTEGER DEFAULT 0,
-  PRIMARY KEY (user_id, lesson_id)
+CREATE TABLE news_items (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    headline        TEXT NOT NULL,
+    summary         TEXT,
+    source_name     TEXT,
+    source_url      TEXT,
+    source_logo     TEXT,
+    news_type       TEXT CHECK (news_type IN ('major_release', 'new_tool', 'research', 'update', 'trick', 'workflow', 'capability', 'tool-update')),
+    fomo_score      INT DEFAULT 5 CHECK (fomo_score BETWEEN 1 AND 10),
+    actionability   INT DEFAULT 5 CHECK (actionability BETWEEN 0 AND 10),
+    related_tool_id UUID REFERENCES tools(id) ON DELETE SET NULL,
+    related_task_ids UUID[],
+    published_at    TIMESTAMPTZ,
+    fetched_at      TIMESTAMPTZ DEFAULT NOW(),
+    is_featured     BOOLEAN DEFAULT FALSE,
+    content_hash    TEXT UNIQUE,   -- for deduplication
+    classified_data JSONB          -- full VerifiedUpdate object for cache
 );
 
--- News items
-CREATE TABLE IF NOT EXISTS news_items (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  headline         TEXT NOT NULL,
-  summary          TEXT,
-  source_name      TEXT,
-  source_url       TEXT,
-  source_logo      TEXT,
-  news_type        TEXT CHECK (news_type IN ('major_release','new-tool','research','tool-update','trick','workflow','capability','price_change')),
-  fomo_score       INTEGER CHECK (fomo_score BETWEEN 1 AND 10),
-  actionability    INTEGER CHECK (actionability BETWEEN 0 AND 10),
-  related_tool_id  UUID REFERENCES tools(id) ON DELETE SET NULL,
-  related_task_ids UUID[],
-  published_at     TIMESTAMPTZ NOT NULL,
-  fetched_at       TIMESTAMPTZ DEFAULT NOW(),
-  is_featured      BOOLEAN DEFAULT FALSE,
-  delta_summary    TEXT          -- rewritten in Delta voice
-);
-
-CREATE INDEX IF NOT EXISTS idx_news_published ON news_items(published_at DESC);
-CREATE INDEX IF NOT EXISTS idx_news_fomo      ON news_items(fomo_score DESC);
-CREATE INDEX IF NOT EXISTS idx_news_type      ON news_items(news_type);
-CREATE INDEX IF NOT EXISTS idx_news_featured  ON news_items(is_featured) WHERE is_featured = TRUE;
+CREATE INDEX idx_news_published ON news_items(published_at DESC);
+CREATE INDEX idx_news_fomo ON news_items(fomo_score DESC);
+CREATE INDEX idx_news_type ON news_items(news_type);
+CREATE INDEX idx_news_hash ON news_items(content_hash);
 
 -- ============================================================
--- DOMAIN 4: ANALYTICS & SOCIAL
+-- DOMAIN 4: ANALYTICS
 -- ============================================================
 
--- Tool views (for trending calculation)
-CREATE TABLE IF NOT EXISTS tool_views (
-  id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tool_id   UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  user_id   UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
-  viewed_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE tool_views (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tool_id     UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    user_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    viewed_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_views_tool_date ON tool_views(tool_id, viewed_at);
-
--- Reviews
-CREATE TABLE IF NOT EXISTS reviews (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tool_id       UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  user_id       UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-  rating        INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  pros          TEXT[],
-  cons          TEXT[],
-  use_case      TEXT,
-  body          TEXT,
-  helpful_count INTEGER DEFAULT 0,
-  is_verified   BOOLEAN DEFAULT FALSE,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (tool_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_reviews_tool ON reviews(tool_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
-
--- Tool discovery queue (ingestion pipeline staging area)
-CREATE TABLE IF NOT EXISTS discovery_queue (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  url          TEXT NOT NULL,
-  candidate_name TEXT,
-  source       TEXT,          -- "product_hunt", "github_trending", "reddit", "hn", "newsletter"
-  raw_signals  INTEGER DEFAULT 1,
-  status       TEXT DEFAULT 'pending' CHECK (status IN ('pending','fetching','parsing','enriching','ready','duplicate','rejected')),
-  error_msg    TEXT,
-  discovered_at TIMESTAMPTZ DEFAULT NOW(),
-  processed_at  TIMESTAMPTZ,
-  UNIQUE (url)
-);
-
-CREATE INDEX IF NOT EXISTS idx_queue_status ON discovery_queue(status, discovered_at);
-
--- Content cache (existing table — updated structure)
-CREATE TABLE IF NOT EXISTS content_cache (
-  content_hash   TEXT PRIMARY KEY,
-  source         TEXT NOT NULL,
-  title          TEXT,
-  summary        TEXT,
-  url            TEXT,
-  raw_data       JSONB,
-  classified_data JSONB,
-  relevance_scores JSONB,
-  fetched_at     TIMESTAMPTZ DEFAULT NOW(),
-  expires_at     TIMESTAMPTZ NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_content_cache_expires ON content_cache(expires_at);
-CREATE INDEX IF NOT EXISTS idx_content_cache_source  ON content_cache(source);
+CREATE INDEX idx_tool_views_tool ON tool_views(tool_id, viewed_at DESC);
 
 -- ============================================================
--- ROW LEVEL SECURITY
+-- REVIEWS
 -- ============================================================
 
-ALTER TABLE user_profiles        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_tool_saves      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_tool_mastery    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_task_follows    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_lesson_completions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reviews              ENABLE ROW LEVEL SECURITY;
+CREATE TABLE reviews (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tool_id         UUID NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    rating          INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    pros            TEXT[],
+    cons            TEXT[],
+    use_case        TEXT,
+    body            TEXT,
+    helpful_count   INT DEFAULT 0,
+    is_verified     BOOLEAN DEFAULT FALSE,  -- user has completed a lesson for this tool
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (tool_id, user_id)
+);
 
--- user_profiles: users can only read/write their own row
-CREATE POLICY "users_own_profile" ON user_profiles
-  FOR ALL USING (auth.uid() = id);
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own reviews"
+    ON reviews FOR ALL
+    USING (auth.uid() = user_id);
+CREATE POLICY "Anyone can read reviews"
+    ON reviews FOR SELECT
+    USING (TRUE);
 
--- user_tool_saves
-CREATE POLICY "users_own_saves" ON user_tool_saves
-  FOR ALL USING (auth.uid() = user_id);
+-- ============================================================
+-- CONTENT CACHE (for pipeline results)
+-- ============================================================
 
--- user_tool_mastery
-CREATE POLICY "users_own_mastery" ON user_tool_mastery
-  FOR ALL USING (auth.uid() = user_id);
+CREATE TABLE content_cache (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    content_hash    TEXT UNIQUE NOT NULL,
+    source          TEXT,
+    title           TEXT,
+    summary         TEXT,
+    url             TEXT,
+    raw_data        JSONB,
+    classified_data JSONB,
+    relevance_scores JSONB,
+    fetched_at      TIMESTAMPTZ DEFAULT NOW(),
+    expires_at      TIMESTAMPTZ
+);
 
--- user_task_follows
-CREATE POLICY "users_own_follows" ON user_task_follows
-  FOR ALL USING (auth.uid() = user_id);
+CREATE INDEX idx_content_cache_hash ON content_cache(content_hash);
+CREATE INDEX idx_content_cache_source ON content_cache(source);
+CREATE INDEX idx_content_cache_expires ON content_cache(expires_at);
 
--- user_lesson_completions
-CREATE POLICY "users_own_completions" ON user_lesson_completions
-  FOR ALL USING (auth.uid() = user_id);
+-- ============================================================
+-- UTILITY: updated_at auto-update trigger
+-- ============================================================
 
--- reviews: users can read all, write only their own
-CREATE POLICY "reviews_read_all"  ON reviews FOR SELECT USING (TRUE);
-CREATE POLICY "reviews_write_own" ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "reviews_update_own" ON reviews FOR UPDATE USING (auth.uid() = user_id);
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_tools_updated
+    BEFORE UPDATE ON tools
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_user_profiles_updated
+    BEFORE UPDATE ON user_profiles
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_lessons_updated
+    BEFORE UPDATE ON lessons
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================
+-- SEED: Delta's 6 top-level task categories
+-- ============================================================
+
+INSERT INTO tasks (slug, name, emoji, sort_order) VALUES
+    ('ai-writing',    'AI Writing',      '✍️',  1),
+    ('ai-images',     'AI Images',       '🎨',  2),
+    ('coding',        'Coding Copilots', '💻',  3),
+    ('ai-research',   'AI Research',     '🔬',  4),
+    ('video-audio',   'Video & Audio',   '🎵',  5),
+    ('career-biz',    'Career & Biz',    '💼',  6);

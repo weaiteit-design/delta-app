@@ -1,7 +1,8 @@
 import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LogoContainer } from '../shared/ui/LogoContainer';
-
 import { ToolPricing } from '../shared/types/types';
+import { colors, radius } from '../shared/platform/theme';
 
 interface ToolListTool {
     id: string;
@@ -21,124 +22,71 @@ interface ToolListItemProps {
     onClick?: () => void;
 }
 
+function pricingColor(model: string) { return model === 'free' ? colors.green : model === 'paid' ? colors.red : colors.yellow; }
+function pricingBg(model: string) { return model === 'free' ? colors.greenBg : model === 'paid' ? 'rgba(248,113,113,0.1)' : colors.yellowBg; }
+
 export function ToolListItem({ tool, onClick }: ToolListItemProps) {
     return (
-        <div
-            onClick={onClick}
-            style={{
-                padding: '14px 16px',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 20,
-                display: 'flex',
-                gap: 14,
-                alignItems: 'center',
-                cursor: 'pointer',
-                transition: 'transform 0.15s ease',
-            }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.99)')}
-            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-            {/* Logo */}
-            <LogoContainer
-                domain={tool.domain}
-                name={tool.name}
-                size={44}
-                category={tool.category}
-                logoUrl={tool.logoUrl}
-            />
+        <TouchableOpacity style={styles.card} onPress={onClick} activeOpacity={0.85}>
+            <LogoContainer domain={tool.domain} name={tool.name} size={44} category={tool.category} logoUrl={tool.logoUrl} />
 
-            {/* Info */}
-            <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <div style={{
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: 'var(--text-1)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                    }}>
-                        {tool.name}
-                    </div>
+            <View style={styles.info}>
+                <View style={styles.nameRow}>
+                    <Text style={styles.name} numberOfLines={1}>{tool.name}</Text>
                     {tool.pricing && (
-                        <div style={{
-                            padding: '2px 6px',
-                            borderRadius: 6,
-                            background: tool.pricing.model === 'free' ? 'rgba(52,211,153,0.1)' : tool.pricing.model === 'paid' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)',
-                            border: `1px solid ${tool.pricing.model === 'free' ? 'rgba(52,211,153,0.2)' : tool.pricing.model === 'paid' ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.2)'}`,
-                            color: tool.pricing.model === 'free' ? 'var(--green)' : tool.pricing.model === 'paid' ? 'var(--red)' : 'var(--yellow)',
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 9,
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            whiteSpace: 'nowrap',
-                        }}>
-                            {tool.pricing.model}
-                        </div>
+                        <View style={[styles.pricingBadge, { backgroundColor: pricingBg(tool.pricing.model) }]}>
+                            <Text style={[styles.pricingText, { color: pricingColor(tool.pricing.model) }]}>
+                                {tool.pricing.model}
+                            </Text>
+                        </View>
                     )}
-                </div>
-                <div style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 11,
-                    color: 'var(--text-3)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                }}>
-                    {tool.description}
-                </div>
+                </View>
+                <Text style={styles.description} numberOfLines={1}>{tool.description}</Text>
                 {tool.pricing?.startingPrice && (
-                    <div style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 10,
-                        color: 'var(--text-3)',
-                        marginTop: 4,
-                    }}>
+                    <Text style={styles.price}>
                         {tool.pricing.model === 'freemium' ? 'Free + ' : 'From '}{tool.pricing.startingPrice}
-                    </div>
+                    </Text>
                 )}
-            </div>
+            </View>
 
-            {/* Right column */}
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end',
-                gap: 6,
-                flexShrink: 0,
-            }}>
+            <View style={styles.right}>
                 {tool.isNew ? (
-                    <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: 'var(--blue)',
-                        background: 'var(--blue-bg)',
-                        borderRadius: 10,
-                        padding: '1px 8px',
-                    }}>New</span>
+                    <Text style={styles.newBadge}>New</Text>
                 ) : (
-                    <span style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: 'var(--green)',
-                    }}>{tool.matchScore}% match</span>
+                    <Text style={styles.matchScore}>{tool.matchScore}% match</Text>
                 )}
-                <div style={{ display: 'flex', gap: 4 }}>
+                <View style={styles.masteryDots}>
                     {[1, 2, 3].map((dot) => (
-                        <div key={dot} style={{
-                            width: 5,
-                            height: 5,
-                            borderRadius: '50%',
-                            background: dot <= tool.mastery ? 'var(--accent-2)' : 'var(--surface-3)',
-                        }} />
+                        <View key={dot} style={[styles.dot, { backgroundColor: dot <= tool.mastery ? colors.accent2 : colors.surface3 }]} />
                     ))}
-                </div>
-            </div>
-        </div>
+                </View>
+            </View>
+        </TouchableOpacity>
     );
 }
+
+const styles = StyleSheet.create({
+    card: {
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.xl,
+        flexDirection: 'row',
+        gap: 14,
+        alignItems: 'center',
+    },
+    info: { flex: 1, minWidth: 0, paddingRight: 8 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+    name: { fontSize: 14, fontWeight: '700', color: colors.text1, flexShrink: 1 },
+    pricingBadge: { paddingVertical: 2, paddingHorizontal: 6, borderRadius: 6 },
+    pricingText: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
+    description: { fontSize: 11, color: colors.text3 },
+    price: { fontSize: 10, color: colors.text3, marginTop: 4 },
+    right: { flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 },
+    newBadge: { fontSize: 11, fontWeight: '700', color: colors.blue, backgroundColor: colors.blueBg, borderRadius: 10, paddingVertical: 1, paddingHorizontal: 8 },
+    matchScore: { fontSize: 11, fontWeight: '700', color: colors.green },
+    masteryDots: { flexDirection: 'row', gap: 4 },
+    dot: { width: 5, height: 5, borderRadius: 3 },
+});

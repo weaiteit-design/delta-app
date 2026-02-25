@@ -1,8 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
 import { deltaService, CURATED_TOOLS } from '../shared/api/deltaService';
 import { storageService } from '../entities/user/storageService';
 import { ToolData, LessonData } from '../shared/types/types';
-import { Send, Play, Clock, BookOpen } from 'lucide-react';
+import { Send, Play, Clock, BookOpen } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 interface ChatScreenProps {
     onStartLesson: (lesson: LessonData) => void;
@@ -34,7 +43,7 @@ export function ChatScreen({ onStartLesson, onSelectTool }: ChatScreenProps) {
     ]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<ScrollView>(null);
     const lastUserKey = useRef('');
 
     // Re-initialise chat when user profile changes (e.g., after sign-in or role change)
@@ -55,9 +64,7 @@ export function ChatScreen({ onStartLesson, onSelectTool }: ChatScreenProps) {
     }, [user.name, user.role, user.aiLevel]);
 
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+        scrollRef.current?.scrollToEnd({ animated: true });
     }, [messages]);
 
     const handleSend = async () => {
@@ -103,7 +110,6 @@ export function ChatScreen({ onStartLesson, onSelectTool }: ChatScreenProps) {
 
     const handleLessonCardClick = (toolName?: string) => {
         if (toolName) {
-            // Find the matching tool
             const matchedTool = CURATED_TOOLS.find(t =>
                 t.name.toLowerCase().includes(toolName) ||
                 t.domain.toLowerCase().includes(toolName)
@@ -113,7 +119,6 @@ export function ChatScreen({ onStartLesson, onSelectTool }: ChatScreenProps) {
                 return;
             }
         }
-        // Fallback: generate a contextual quick lesson
         const quickLesson: LessonData = {
             id: `chat-lesson-${Date.now()}`,
             title: toolName ? `Master ${toolName.charAt(0).toUpperCase() + toolName.slice(1)} in 3 Steps` : 'AI Power User Techniques',
@@ -144,251 +149,337 @@ export function ChatScreen({ onStartLesson, onSelectTool }: ChatScreenProps) {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <View style={styles.container}>
             {/* Status bar */}
-            <div style={{ height: 44, flexShrink: 0 }} />
+            <View style={{ height: 44 }} />
 
             {/* Chat Header */}
-            <div style={{
-                padding: '8px 20px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                borderBottom: '1px solid var(--border)',
-                flexShrink: 0,
-            }}>
-                <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                }}>
-                    <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>△</span>
-                </div>
-                <div>
-                    <div style={{
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: 'var(--text-1)',
-                    }}>Delta AI</div>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 5,
-                    }}>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
-                        <span style={{
-                            fontFamily: "'DM Sans', sans-serif",
-                            fontSize: 11,
-                            color: 'var(--green)',
-                        }}>Online · AI-powered</span>
-                    </div>
-                </div>
-            </div>
+            <View style={styles.header}>
+                <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarText}>△</Text>
+                </View>
+                <View>
+                    <Text style={styles.headerName}>Delta AI</Text>
+                    <View style={styles.onlineRow}>
+                        <View style={styles.onlineDot} />
+                        <Text style={styles.onlineText}>Online · AI-powered</Text>
+                    </View>
+                </View>
+            </View>
 
             {/* Chat Thread */}
-            <div ref={scrollRef} style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '16px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-                scrollbarWidth: 'none',
-            }}>
+            <ScrollView
+                ref={scrollRef}
+                style={styles.chatThread}
+                contentContainerStyle={styles.chatThreadContent}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Suggested prompts (only if fresh) */}
                 {messages.length <= 2 && (
-                    <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 8,
-                        marginBottom: 8,
-                    }}>
+                    <View style={styles.suggestedRow}>
                         {SUGGESTED_PROMPTS.map((prompt) => (
-                            <button
+                            <TouchableOpacity
                                 key={prompt}
-                                onClick={() => { setInput(prompt); }}
-                                style={{
-                                    padding: '6px 12px',
-                                    borderRadius: 20,
-                                    border: '1px solid var(--border-2)',
-                                    background: 'var(--surface-2)',
-                                    color: 'var(--text-2)',
-                                    fontFamily: "'DM Sans', sans-serif",
-                                    fontSize: 12,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                }}
+                                onPress={() => setInput(prompt)}
+                                style={styles.suggestedChip}
+                                activeOpacity={0.7}
                             >
-                                {prompt}
-                            </button>
+                                <Text style={styles.suggestedText}>{prompt}</Text>
+                            </TouchableOpacity>
                         ))}
-                    </div>
+                    </View>
                 )}
 
                 {messages.map((msg) => (
-                    <div key={msg.id}>
-                        <div style={{
-                            maxWidth: '80%',
-                            alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                            marginLeft: msg.role === 'user' ? 'auto' : 0,
-                            marginRight: msg.role === 'user' ? 0 : 'auto',
-                        }}>
-                            <div style={{
-                                padding: '10px 14px',
-                                borderRadius: 18,
-                                borderBottomLeftRadius: msg.role === 'ai' ? 4 : 18,
-                                borderBottomRightRadius: msg.role === 'user' ? 4 : 18,
-                                background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface-2)',
-                                border: msg.role === 'ai' ? '1px solid var(--border-2)' : 'none',
-                                fontFamily: "'DM Sans', sans-serif",
-                                fontSize: 13,
-                                lineHeight: 1.5,
-                                color: msg.role === 'user' ? '#fff' : 'var(--text-1)',
-                                whiteSpace: 'pre-wrap',
-                            }}>
-                                {msg.text}
-                            </div>
-                        </div>
+                    <View key={msg.id}>
+                        <View style={[
+                            styles.msgWrapper,
+                            msg.role === 'user' ? styles.msgWrapperUser : styles.msgWrapperAi,
+                        ]}>
+                            <View style={[
+                                styles.bubble,
+                                msg.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
+                            ]}>
+                                <Text style={[
+                                    styles.bubbleText,
+                                    msg.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAi,
+                                ]}>
+                                    {msg.text}
+                                </Text>
+                            </View>
+                        </View>
 
                         {/* Inline Lesson Card */}
                         {msg.lessonCard && (
-                            <div
-                                onClick={() => handleLessonCardClick(msg.lessonCard?.toolName)}
-                                style={{
-                                    maxWidth: '85%',
-                                    marginTop: 8,
-                                    background: 'rgba(99,102,241,0.08)',
-                                    border: '1px solid rgba(99,102,241,0.2)',
-                                    borderRadius: 20,
-                                    padding: '12px 14px',
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.15s ease',
-                                }}
+                            <TouchableOpacity
+                                onPress={() => handleLessonCardClick(msg.lessonCard?.toolName)}
+                                style={styles.lessonCard}
+                                activeOpacity={0.85}
                             >
-                                <div style={{
-                                    fontFamily: "'Syne', sans-serif",
-                                    fontSize: 14,
-                                    fontWeight: 700,
-                                    color: 'var(--text-1)',
-                                    marginBottom: 6,
-                                }}>{msg.lessonCard.title}</div>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 10,
-                                    marginBottom: 10,
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <Clock size={12} color="var(--text-3)" />
-                                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'var(--text-3)' }}>
-                                            {msg.lessonCard.duration}
-                                        </span>
-                                    </div>
-                                    <span style={{
-                                        fontFamily: "'DM Sans', sans-serif",
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--yellow)',
-                                    }}>+{msg.lessonCard.xp} XP</span>
-                                </div>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleLessonCardClick(msg.lessonCard?.toolName);
-                                    }}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        background: 'var(--accent)',
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: 12,
-                                        padding: '8px 14px',
-                                        fontFamily: "'DM Sans', sans-serif",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                    }}>
-                                    <Play size={12} fill="#fff" />
-                                    Start Lesson
-                                </button>
-                            </div>
+                                <Text style={styles.lessonCardTitle}>{msg.lessonCard.title}</Text>
+                                <View style={styles.lessonCardMeta}>
+                                    <View style={styles.lessonCardMetaItem}>
+                                        <Clock size={12} color={colors.text3} />
+                                        <Text style={styles.lessonCardDuration}>{msg.lessonCard.duration}</Text>
+                                    </View>
+                                    <Text style={styles.lessonCardXp}>+{msg.lessonCard.xp} XP</Text>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={() => handleLessonCardClick(msg.lessonCard?.toolName)}
+                                    style={styles.lessonCardBtn}
+                                    activeOpacity={0.8}
+                                >
+                                    <Play size={12} color="#fff" fill="#fff" />
+                                    <Text style={styles.lessonCardBtnText}>Start Lesson</Text>
+                                </TouchableOpacity>
+                            </TouchableOpacity>
                         )}
-                    </div>
+                    </View>
                 ))}
 
                 {/* Typing indicator */}
                 {isTyping && (
-                    <div style={{
-                        padding: '10px 14px',
-                        borderRadius: 18,
-                        borderBottomLeftRadius: 4,
-                        background: 'var(--surface-2)',
-                        border: '1px solid var(--border-2)',
-                        alignSelf: 'flex-start',
-                        display: 'flex',
-                        gap: 4,
-                    }}>
-                        <div className="animate-pulse-live" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-2)' }} />
-                        <div className="animate-pulse-live" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-2)', animationDelay: '0.2s' }} />
-                        <div className="animate-pulse-live" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-2)', animationDelay: '0.4s' }} />
-                    </div>
+                    <View style={styles.typingIndicator}>
+                        <View style={[styles.typingDot, { opacity: 1 }]} />
+                        <View style={[styles.typingDot, { opacity: 0.7 }]} />
+                        <View style={[styles.typingDot, { opacity: 0.4 }]} />
+                    </View>
                 )}
-            </div>
+            </ScrollView>
 
             {/* Input Row */}
-            <div style={{
-                padding: '10px 20px 96px',
-                display: 'flex',
-                gap: 10,
-                alignItems: 'center',
-                flexShrink: 0,
-            }}>
-                <input
-                    type="text"
+            <View style={styles.inputRow}>
+                <TextInput
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    onChangeText={setInput}
+                    onSubmitEditing={handleSend}
                     placeholder="Ask Delta anything..."
-                    style={{
-                        flex: 1,
-                        height: 44,
-                        background: 'var(--surface-2)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 9999,
-                        padding: '0 16px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13,
-                        color: 'var(--text-1)',
-                        outline: 'none',
-                    }}
+                    placeholderTextColor={colors.text3}
+                    style={styles.input}
+                    returnKeyType="send"
                 />
-                <button
-                    onClick={handleSend}
+                <TouchableOpacity
+                    onPress={handleSend}
                     disabled={isTyping}
-                    style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        background: isTyping ? 'var(--surface-3)' : 'var(--accent)',
-                        border: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: isTyping ? 'not-allowed' : 'pointer',
-                        flexShrink: 0,
-                    }}
+                    style={[styles.sendBtn, isTyping && styles.sendBtnDisabled]}
+                    activeOpacity={0.8}
                 >
                     <Send size={16} color="#fff" />
-                </button>
-            </div>
-        </div>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    avatarCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    avatarText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    headerName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.text1,
+    },
+    onlineRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    onlineDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.green,
+    },
+    onlineText: {
+        fontSize: 11,
+        color: colors.green,
+    },
+    chatThread: {
+        flex: 1,
+    },
+    chatThreadContent: {
+        padding: 16,
+        paddingHorizontal: 20,
+        gap: 12,
+    },
+    suggestedRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 8,
+    },
+    suggestedChip: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.border2,
+        backgroundColor: colors.surface2,
+    },
+    suggestedText: {
+        fontSize: 12,
+        color: colors.text2,
+    },
+    msgWrapper: {
+        marginBottom: 4,
+    },
+    msgWrapperUser: {
+        alignItems: 'flex-end',
+    },
+    msgWrapperAi: {
+        alignItems: 'flex-start',
+    },
+    bubble: {
+        maxWidth: '80%',
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+    },
+    bubbleUser: {
+        backgroundColor: colors.accent,
+        borderRadius: 18,
+        borderBottomRightRadius: 4,
+    },
+    bubbleAi: {
+        backgroundColor: colors.surface2,
+        borderRadius: 18,
+        borderBottomLeftRadius: 4,
+        borderWidth: 1,
+        borderColor: colors.border2,
+    },
+    bubbleText: {
+        fontSize: 13,
+        lineHeight: 19.5,
+    },
+    bubbleTextUser: {
+        color: '#fff',
+    },
+    bubbleTextAi: {
+        color: colors.text1,
+    },
+    lessonCard: {
+        maxWidth: '85%',
+        marginTop: 8,
+        marginBottom: 4,
+        backgroundColor: colors.accentBg,
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.2)',
+        borderRadius: 20,
+        padding: 14,
+    },
+    lessonCardTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: colors.text1,
+        marginBottom: 6,
+    },
+    lessonCardMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 10,
+    },
+    lessonCardMetaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    lessonCardDuration: {
+        fontSize: 11,
+        color: colors.text3,
+    },
+    lessonCardXp: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.yellow,
+    },
+    lessonCardBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: colors.accent,
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        alignSelf: 'flex-start',
+    },
+    lessonCardBtnText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    typingIndicator: {
+        flexDirection: 'row',
+        gap: 4,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border2,
+        borderRadius: 18,
+        borderBottomLeftRadius: 4,
+        alignSelf: 'flex-start',
+    },
+    typingDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.accent2,
+    },
+    inputRow: {
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 96,
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'center',
+    },
+    input: {
+        flex: 1,
+        height: 44,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.full,
+        paddingHorizontal: 16,
+        fontSize: 13,
+        color: colors.text1,
+    },
+    sendBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    sendBtnDisabled: {
+        backgroundColor: colors.surface3,
+    },
+});
