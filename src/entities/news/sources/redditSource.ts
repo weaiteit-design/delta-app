@@ -1,23 +1,54 @@
 import { RawContentItem } from '../../../shared/types/types';
 
+const SUBREDDITS = [
+    { name: 'ChatGPT', limit: 30 },
+    { name: 'ClaudeAI', limit: 15 },
+    { name: 'LocalLLaMA', limit: 15 },
+    { name: 'AIPromptProgramming', limit: 15 },
+    { name: 'artificial', limit: 15 },
+    { name: 'MachineLearning', limit: 15 },
+    { name: 'StableDiffusion', limit: 10 },
+    { name: 'SideProject', limit: 10 },
+];
+
+const PROXY_CHAIN = [
+    (url: string) => url,  // Direct fetch (works if CORS headers present)
+    (url: string) => `/proxy?url=${encodeURIComponent(url)}`,  // Vite dev proxy
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
+
+async function fetchWithFallback(url: string): Promise<any> {
+    for (const makeUrl of PROXY_CHAIN) {
+        try {
+            const response = await fetch(makeUrl(url), {
+                signal: AbortSignal.timeout(8000),
+            });
+            if (response.ok) return response.json();
+        } catch { /* try next */ }
+    }
+    throw new Error(`All fetch attempts failed for ${url}`);
+}
+
 export async function fetchRedditPosts(): Promise<RawContentItem[]> {
-    const urls = [
-        'https://www.reddit.com/r/ChatGPT/new.json?limit=40',
-        'https://www.reddit.com/r/ClaudeAI/new.json?limit=15',
-        'https://www.reddit.com/r/LocalLLaMA/new.json?limit=15',
-        'https://www.reddit.com/r/AIPromptProgramming/new.json?limit=15',
-        'https://www.reddit.com/r/AIcrowd/new.json?limit=15',
-        'https://www.reddit.com/r/SideProject/new.json?limit=15',
-    ];
+    const urls = SUBREDDITS.map(s =>
+        `https://www.reddit.com/r/${s.name}/hot.json?limit=${s.limit}`
+    );
 
     try {
-        const results = await Promise.all(urls.map(url => {
-            const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
-            return fetch(proxyUrl).then(r => r.json());
-        }));
+        // Use allSettled so one failing subreddit doesn't kill all
+        const results = await Promise.allSettled(
+            urls.map(url => fetchWithFallback(url))
+        );
+
         const items: RawContentItem[] = [];
 
-        results.forEach(data => {
+        results.forEach((result, i) => {
+            if (result.status !== 'fulfilled') {
+                console.warn(`[Reddit] r/${SUBREDDITS[i].name} failed:`, result.reason);
+                return;
+            }
+            const data = result.value;
             const posts = data.data?.children || [];
             posts.forEach(({ data: p }: any) => {
                 if (p.is_self || p.url) {
@@ -31,7 +62,7 @@ export async function fetchRedditPosts(): Promise<RawContentItem[]> {
                         author: `r/${p.subreddit}`,
                         score: p.score,
                         contentHash: p.id,
-                        rawData: p
+                        rawData: p,
                     });
                 }
             });
