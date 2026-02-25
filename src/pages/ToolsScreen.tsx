@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
     TextInput,
     ScrollView,
+    ActivityIndicator,
     StyleSheet,
 } from 'react-native';
-import { deltaService, CURATED_TOOLS } from '../shared/api/deltaService';
 import { storageService } from '../entities/user/storageService';
+import { getTools, searchTools, getNewTools } from '../shared/api/toolsService';
+import { CURATED_TOOLS } from '../shared/api/deltaService';
 import { ToolData } from '../shared/types/types';
 import { SectionLabel } from '../shared/ui/SectionLabel';
 import { FilterChips } from '../shared/ui/FilterChips';
@@ -19,11 +21,11 @@ interface ToolsScreenProps {
     onSelectTool: (tool: ToolData) => void;
 }
 
-// ---- Personalised tool scoring ----
+// Local scoring for curated fallback tools (applied when matchScore is at base 50)
 function scoreToolForUser(tool: ToolData, user: ReturnType<typeof storageService.getUser>): number {
-    let score = 50; // base
+    let score = tool.matchScore || 50;
+    if (score !== 50) return score; // Already scored by backend
 
-    // Boost for matching user's preferred categories
     const CATEGORY_PREF_MAP: Record<string, string[]> = {
         'AI Writing': ['Writing'],
         'AI Images': ['Images'],
@@ -34,13 +36,9 @@ function scoreToolForUser(tool: ToolData, user: ReturnType<typeof storageService
     };
     for (const pref of user.preferredCategories) {
         const cats = CATEGORY_PREF_MAP[pref] || [];
-        if (cats.includes(tool.category)) {
-            score += 25;
-            break;
-        }
+        if (cats.includes(tool.category)) { score += 25; break; }
     }
 
-    // Boost for matching user's role via bestFor
     if (tool.bestFor) {
         const roleMap: Record<string, string[]> = {
             'Student': ['Students', 'Beginners'],
@@ -51,78 +49,98 @@ function scoreToolForUser(tool: ToolData, user: ReturnType<typeof storageService
             'Creator & Builder': ['Creators', 'Builders', 'Developers'],
         };
         const userRoles = roleMap[user.role] || [];
-        if (tool.bestFor.some(r => userRoles.includes(r))) {
-            score += 20;
-        }
+        if (tool.bestFor.some(r => userRoles.includes(r))) score += 20;
     }
 
-    // Demote tools user already knows (still show, just lower)
-    if (user.toolsKnown.includes(tool.name)) {
-        score -= 15;
-    }
-
-    // Small boost for matching user's goals
-    const goalKeywords: Record<string, string[]> = {
-        'Productivity': ['automation', 'workflow', 'assistant'],
-        'Career Growth': ['enterprise', 'professional'],
-        'Learning Fundamentals': ['beginner', 'learning'],
-        'Building Products': ['prototyping', 'mvp', 'app builder', 'code'],
-        'Content Creation': ['content', 'video', 'music', 'image', 'writing', 'voice'],
-        'Automation': ['automation', 'api', 'workflow'],
-    };
-    for (const goal of user.goals) {
-        const kws = goalKeywords[goal] || [];
-        const toolText = (tool.description + ' ' + (tool.useCases || []).join(' ')).toLowerCase();
-        if (kws.some(k => toolText.includes(k))) {
-            score += 10;
-            break;
-        }
-    }
+    if (user.toolsKnown.includes(tool.name)) score -= 15;
 
     return Math.min(100, Math.max(0, score));
+}
+
+function applyFilter(tools: ToolData[], filter: string, search: string): ToolData[] {
+    let result = tools;
+    if (filter !== 'All') {
+        result = result.filter(t => {
+            if (filter === 'Writing') return t.category === 'Writing';
+            if (filter === 'Research') return t.category === 'Research';
+            if (filter === 'Images') return t.category === 'Images';
+            if (filter === 'Coding') return t.category === 'Coding';
+            if (filter === 'Audio') return t.category === 'Audio';
+            return true;
+        });
+    }
+    if (search) {
+        const q = search.toLowerCase();
+        result = result.filter(t =>
+            t.name.toLowerCase().includes(q) ||
+            t.description.toLowerCase().includes(q) ||
+            t.tag.toLowerCase().includes(q) ||
+            t.category.toLowerCase().includes(q)
+        );
+    }
+    return result;
 }
 
 export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
     const [filter, setFilter] = useState('All');
     const [search, setSearch] = useState('');
+    const [allTools, setAllTools] = useState<ToolData[]>([]);
+    const [newTools, setNewTools] = useState<ToolData[]>([]);
+    const [searchResults, setSearchResults] = useState<ToolData[] | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [searching, setSearching] = useState(false);
 
+    const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const user = storageService.getUser();
-    const allTools = CURATED_TOOLS.map(t => ({
-        ...t,
-        matchScore: scoreToolForUser(t, user),
-    }));
 
-    // Sections
+    // Load tools on mount
+    useEffect(() => {
+        let mounted = true;
+        async function load() {
+            setLoading(true);
+            const [tools, fresh] = await Promise.all([getTools(), getNewTools()]);
+            if (!mounted) return;
+            // Apply local scoring for curated fallback tools
+            const scored = tools.map(t => ({ ...t, matchScore: scoreToolForUser(t, user) }));
+            setAllTools(scored);
+            setNewTools(fresh.map(t => ({ ...t, matchScore: scoreToolForUser(t, user) })));
+            setLoading(false);
+        }
+        load();
+        return () => { mounted = false; };
+    }, []);
+
+    // Debounced search (300ms) — DB search when configured, local filter otherwise
+    useEffect(() => {
+        if (!search.trim()) {
+            setSearchResults(null);
+            setSearching(false);
+            return;
+        }
+
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        setSearching(true);
+
+        searchTimerRef.current = setTimeout(async () => {
+            const results = await searchTools(search);
+            const scored = results.map(t => ({ ...t, matchScore: scoreToolForUser(t, user) }));
+            setSearchResults(scored);
+            setSearching(false);
+        }, 300);
+
+        return () => {
+            if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        };
+    }, [search]);
+
+    const displayTools = searchResults ?? allTools;
     const bestForYou = [...allTools]
         .filter(t => !user.toolsKnown.includes(t.name))
         .sort((a, b) => b.matchScore - a.matchScore)
         .slice(0, 5);
 
-    const newTools = allTools.filter(t => t.isNew);
-
-    const filterCategory = (tools: typeof allTools) => {
-        let result = tools;
-        if (filter !== 'All') {
-            result = result.filter(t => {
-                if (filter === 'Writing') return t.category === 'Writing';
-                if (filter === 'Research') return t.category === 'Research';
-                if (filter === 'Images') return t.category === 'Images';
-                if (filter === 'Coding') return t.category === 'Coding';
-                if (filter === 'Audio') return t.category === 'Audio';
-                return true;
-            });
-        }
-        if (search) {
-            const q = search.toLowerCase();
-            result = result.filter(t =>
-                t.name.toLowerCase().includes(q) ||
-                t.description.toLowerCase().includes(q) ||
-                t.tag.toLowerCase().includes(q) ||
-                t.category.toLowerCase().includes(q)
-            );
-        }
-        return result;
-    };
+    const filteredDisplay = applyFilter(displayTools, filter, searchResults ? '' : '');
+    const filteredNew = applyFilter(newTools, filter, '');
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -138,7 +156,10 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
             {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchIconWrapper}>
-                    <Search size={16} color={colors.text3} />
+                    {searching
+                        ? <ActivityIndicator size="small" color={colors.accent2} />
+                        : <Search size={16} color={colors.text3} />
+                    }
                 </View>
                 <TextInput
                     value={search}
@@ -147,6 +168,14 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
                     placeholderTextColor={colors.text3}
                     style={styles.searchInput}
                 />
+                {search.length > 0 && (
+                    <Text
+                        onPress={() => { setSearch(''); setSearchResults(null); }}
+                        style={styles.clearBtn}
+                    >
+                        ✕
+                    </Text>
+                )}
             </View>
 
             {/* Filter Chips */}
@@ -156,51 +185,94 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
                 onSelect={setFilter}
             />
 
-            {/* Best For You */}
-            {!search && filter === 'All' && (
-                <>
-                    <SectionLabel>⚡ BEST FOR YOU</SectionLabel>
-                    <View style={styles.toolsList}>
-                        {bestForYou.map(tool => (
-                            <ToolListItem
-                                key={tool.id}
-                                tool={tool}
-                                onClick={() => onSelectTool(tool)}
-                            />
-                        ))}
-                    </View>
-                </>
+            {/* Loading skeleton */}
+            {loading && (
+                <View style={styles.skeletonContainer}>
+                    {[1, 2, 3].map(i => <View key={i} style={styles.skeletonCard} />)}
+                </View>
             )}
 
-            {/* New & Trending */}
-            {filterCategory(newTools).length > 0 && (
+            {!loading && (
                 <>
-                    <SectionLabel>🆕 NEW & TRENDING</SectionLabel>
-                    <View style={styles.toolsList}>
-                        {filterCategory(newTools).map(tool => (
-                            <ToolListItem
-                                key={tool.id}
-                                tool={tool}
-                                onClick={() => onSelectTool(tool)}
-                            />
-                        ))}
-                    </View>
+                    {/* Search results */}
+                    {searchResults !== null ? (
+                        <>
+                            <SectionLabel>
+                                {searching ? '🔍 SEARCHING...' : `🔍 RESULTS (${filteredDisplay.length})`}
+                            </SectionLabel>
+                            {filteredDisplay.length === 0 && !searching ? (
+                                <View style={styles.emptyState}>
+                                    <Text style={styles.emptyEmoji}>🤷</Text>
+                                    <Text style={styles.emptyTitle}>No tools found</Text>
+                                    <Text style={styles.emptyHint}>
+                                        Try a different term — e.g. "writing", "code", or "image"
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={styles.toolsList}>
+                                    {filteredDisplay.map(tool => (
+                                        <ToolListItem
+                                            key={tool.id}
+                                            tool={tool}
+                                            onClick={() => onSelectTool(tool)}
+                                        />
+                                    ))}
+                                </View>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {/* Best For You */}
+                            {filter === 'All' && bestForYou.length > 0 && (
+                                <>
+                                    <SectionLabel>⚡ BEST FOR YOU</SectionLabel>
+                                    <View style={styles.toolsList}>
+                                        {bestForYou.map(tool => (
+                                            <ToolListItem
+                                                key={tool.id}
+                                                tool={tool}
+                                                onClick={() => onSelectTool(tool)}
+                                            />
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+
+                            {/* New & Trending */}
+                            {filteredNew.length > 0 && (
+                                <>
+                                    <SectionLabel>🆕 NEW & TRENDING</SectionLabel>
+                                    <View style={styles.toolsList}>
+                                        {filteredNew.map(tool => (
+                                            <ToolListItem
+                                                key={tool.id}
+                                                tool={tool}
+                                                onClick={() => onSelectTool(tool)}
+                                            />
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+
+                            {/* All Tools */}
+                            <SectionLabel>
+                                🛠️ ALL TOOLS ({applyFilter(allTools, filter, '').length})
+                            </SectionLabel>
+                            <View style={styles.toolsListLast}>
+                                {applyFilter(allTools, filter, '')
+                                    .sort((a, b) => b.matchScore - a.matchScore)
+                                    .map(tool => (
+                                        <ToolListItem
+                                            key={tool.id}
+                                            tool={tool}
+                                            onClick={() => onSelectTool(tool)}
+                                        />
+                                    ))}
+                            </View>
+                        </>
+                    )}
                 </>
             )}
-
-            {/* All Tools */}
-            <SectionLabel>🛠️ ALL TOOLS ({filterCategory(allTools).length})</SectionLabel>
-            <View style={styles.toolsListLast}>
-                {filterCategory(allTools)
-                    .sort((a, b) => b.matchScore - a.matchScore)
-                    .map(tool => (
-                        <ToolListItem
-                            key={tool.id}
-                            tool={tool}
-                            onClick={() => onSelectTool(tool)}
-                        />
-                    ))}
-            </View>
 
             <View style={{ height: 20 }} />
         </ScrollView>
@@ -241,6 +313,7 @@ const styles = StyleSheet.create({
     searchIconWrapper: {
         paddingLeft: 14,
         paddingRight: 6,
+        width: 38,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -249,7 +322,11 @@ const styles = StyleSheet.create({
         height: 44,
         fontSize: 13,
         color: colors.text1,
-        paddingRight: 14,
+    },
+    clearBtn: {
+        paddingHorizontal: 14,
+        fontSize: 14,
+        color: colors.text3,
     },
     toolsList: {
         paddingHorizontal: 20,
@@ -259,5 +336,37 @@ const styles = StyleSheet.create({
     toolsListLast: {
         paddingHorizontal: 20,
         gap: 10,
+    },
+    skeletonContainer: {
+        paddingHorizontal: 20,
+        gap: 10,
+        marginTop: 8,
+    },
+    skeletonCard: {
+        height: 72,
+        backgroundColor: colors.surface2,
+        borderRadius: 16,
+        opacity: 0.6,
+    },
+    emptyState: {
+        paddingHorizontal: 20,
+        paddingVertical: 32,
+        alignItems: 'center',
+    },
+    emptyEmoji: {
+        fontSize: 32,
+        marginBottom: 12,
+    },
+    emptyTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: colors.text1,
+        marginBottom: 6,
+    },
+    emptyHint: {
+        fontSize: 13,
+        color: colors.text3,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

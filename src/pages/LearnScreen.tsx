@@ -10,6 +10,7 @@ import { SectionLabel } from '../shared/ui/SectionLabel';
 import { LessonCard } from '../features/LessonCard';
 import { LessonData } from '../shared/types/types';
 import { deltaService } from '../shared/api/deltaService';
+import { getLessons, getRecommendedLessons } from '../shared/api/lessonsService';
 import { storageService } from '../entities/user/storageService';
 import { colors, radius } from '../shared/platform/theme';
 
@@ -96,6 +97,7 @@ function difficultyMatches(lessonDifficulty: number, filter: DiffFilter): boolea
 export function LearnScreen({ onStartLesson }: LearnScreenProps) {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [quickLessons, setQuickLessons] = useState<LessonData[]>([]);
+    const [recommendedLessons, setRecommendedLessons] = useState<LessonData[]>([]);
     const [categoryLessons, setCategoryLessons] = useState<Record<string, LessonData[]>>({});
     const [diffFilter, setDiffFilter] = useState<DiffFilter>('all');
 
@@ -110,6 +112,22 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
         async function loadQuickLessons() {
             setLoadingQuick(true);
             try {
+                // Try DB lessons first (returns [] if Supabase not configured)
+                const [dbLessons, recommended] = await Promise.all([
+                    getLessons({ limit: 6 }),
+                    getRecommendedLessons(),
+                ]);
+
+                if (!mounted) return;
+
+                if (dbLessons.length > 0) {
+                    setQuickLessons(dbLessons);
+                    setRecommendedLessons(recommended);
+                    setLoadingQuick(false);
+                    return;
+                }
+
+                // Fallback: Gemini-generated lessons
                 const [lesson1, lesson2] = await Promise.all([
                     deltaService.generateDynamicLesson('Prompt Engineering Fundamentals', 'AI Writing'),
                     deltaService.generateDynamicLesson('AI Workflows for Productivity', 'Career & Biz')
@@ -117,12 +135,12 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
 
                 if (!mounted) return;
 
-                const lessons = [];
+                const lessons: LessonData[] = [];
                 if (lesson1) { lesson1.pill = 'QUICK LESSON'; lessons.push(lesson1); }
                 if (lesson2) { lesson2.pill = 'QUICK LESSON'; lessons.push(lesson2); }
                 setQuickLessons(lessons);
             } catch (e) {
-                console.error("Failed to load quick lessons", e);
+                console.error('Failed to load quick lessons', e);
             } finally {
                 if (mounted) setLoadingQuick(false);
             }
@@ -291,6 +309,20 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
                         <Text style={styles.emptyText}>No lessons generated yet.</Text>
                     )}
                 </View>
+            )}
+
+            {/* Recommended for You (DB only) */}
+            {recommendedLessons.length > 0 && (
+                <>
+                    <SectionLabel>🎯 RECOMMENDED FOR YOU</SectionLabel>
+                    {recommendedLessons.filter(l => difficultyMatches(l.difficulty, diffFilter)).slice(0, 3).map(lesson => (
+                        <LessonCard
+                            key={lesson.id}
+                            lesson={lesson}
+                            onStartLesson={() => onStartLesson(lesson)}
+                        />
+                    ))}
+                </>
             )}
 
             {/* Quick Lessons */}

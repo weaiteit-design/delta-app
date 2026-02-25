@@ -4,7 +4,7 @@
 // App works fully without Supabase configured.
 // ============================================
 
-import { ToolData } from '../types/types';
+import { ToolData, ReviewData } from '../types/types';
 import { supabase, IS_CONFIGURED } from './supabaseClient';
 import { CURATED_TOOLS } from './deltaService';
 import { storageService } from '../../entities/user/storageService';
@@ -171,4 +171,38 @@ export async function toggleToolSave(slug: string): Promise<boolean> {
         await edgeCall(`/tools-api/${slug}/save`, {});
     }
     return isSaved;
+}
+
+/**
+ * Get reviews for a tool
+ */
+export async function getToolReviews(slug: string): Promise<ReviewData[]> {
+    if (!IS_CONFIGURED) return [];
+    const data = await edgeCall<{ reviews: Record<string, any>[] }>(`/reviews-api/${slug}`);
+    if (!data?.reviews?.length) return [];
+    return data.reviews.map(r => ({
+        id: r.id,
+        rating: r.rating || 3,
+        pros: r.pros || [],
+        cons: r.cons || [],
+        use_case: r.use_case || '',
+        created_at: r.created_at || '',
+        user_initials: r.user_initials || 'DU',
+    }));
+}
+
+/**
+ * Submit a tool review (requires auth) — awards +30 XP
+ */
+export async function submitToolReview(
+    slug: string,
+    review: { rating: number; pros: string[]; cons: string[]; use_case: string },
+): Promise<{ success: boolean; xpEarned: number }> {
+    if (!IS_CONFIGURED) return { success: false, xpEarned: 0 };
+    const data = await edgeCall<{ success: boolean; xp_earned: number }>(
+        `/reviews-api/${slug}`,
+        { rating: review.rating, pros: review.pros, cons: review.cons, use_case: review.use_case },
+    );
+    if (!data?.success) return { success: false, xpEarned: 0 };
+    return { success: true, xpEarned: data.xp_earned || 30 };
 }

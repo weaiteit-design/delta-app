@@ -95,6 +95,16 @@ export interface SkillData {
     color: string;
 }
 
+export interface ReviewData {
+    id: string;
+    rating: number; // 1-5
+    pros?: string[];
+    cons?: string[];
+    use_case?: string;
+    created_at?: string;
+    user_initials?: string; // e.g. "JD" — never expose full name
+}
+
 export interface PipelineStats {
     lastFetchAt: string | null;
     sourceCounts: Record<string, number>;

@@ -10,6 +10,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { LessonData } from '../shared/types/types';
 import { storageService } from '../entities/user/storageService';
+import { completeLesson } from '../shared/api/lessonsService';
 import { ArrowLeft, CheckCircle, Copy, Clock, Sparkles, ChevronRight, ExternalLink, PlayCircle } from 'lucide-react-native';
 import { colors, radius } from '../shared/platform/theme';
 
@@ -52,13 +53,10 @@ export function LessonViewer({ lesson, onBack }: LessonViewerProps) {
     const totalSteps = steps.length;
     const isLastStep = currentStep >= totalSteps - 1;
 
-    const handleComplete = () => {
-        // Award XP via centralized service
-        const { user, leveledUp } = storageService.addXP(lesson.xp || 25, lesson.id);
-
-        if (leveledUp) {
-            setLeveledUpTo(user.levelTitle);
-        }
+    const handleComplete = async () => {
+        // Award XP via lessonsService (syncs to DB if Supabase configured, else local only)
+        const { leveledUp, newLevel } = await completeLesson(lesson.id, lesson.xp || 25);
+        if (leveledUp && newLevel) setLeveledUpTo(newLevel);
         setCompleted(true);
     };
 
