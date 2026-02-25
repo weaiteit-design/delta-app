@@ -1,14 +1,18 @@
 import { RawContentItem } from '../../../shared/types/types';
 
+// Combined subreddits from both branches
 const SUBREDDITS = [
-    { name: 'ChatGPT', limit: 30 },
-    { name: 'ClaudeAI', limit: 15 },
-    { name: 'LocalLLaMA', limit: 15 },
-    { name: 'AIPromptProgramming', limit: 15 },
-    { name: 'artificial', limit: 15 },
-    { name: 'MachineLearning', limit: 15 },
-    { name: 'StableDiffusion', limit: 10 },
-    { name: 'SideProject', limit: 10 },
+    { name: 'ChatGPT', limit: 30, minScore: 10 },
+    { name: 'ClaudeAI', limit: 20, minScore: 5 },
+    { name: 'LocalLLaMA', limit: 20, minScore: 5 },
+    { name: 'AIPromptProgramming', limit: 20, minScore: 5 },
+    { name: 'artificial', limit: 20, minScore: 10 },
+    { name: 'singularity', limit: 15, minScore: 10 },
+    { name: 'OpenAI', limit: 15, minScore: 10 },
+    { name: 'MachineLearning', limit: 15, minScore: 10 },
+    { name: 'StableDiffusion', limit: 10, minScore: 10 },
+    { name: 'midjourney', limit: 10, minScore: 20 },
+    { name: 'SideProject', limit: 10, minScore: 5 },
 ];
 
 const PROXY_CHAIN = [
@@ -49,22 +53,26 @@ export async function fetchRedditPosts(): Promise<RawContentItem[]> {
                 return;
             }
             const data = result.value;
+            const { minScore } = SUBREDDITS[i];
             const posts = data.data?.children || [];
+
             posts.forEach(({ data: p }: any) => {
-                if (p.is_self || p.url) {
-                    items.push({
-                        id: `reddit-${p.id}`,
-                        source: 'reddit',
-                        title: p.title,
-                        summary: p.selftext ? p.selftext.substring(0, 500) : p.title,
-                        url: `https://reddit.com${p.permalink}`,
-                        publishedAt: new Date(p.created_utc * 1000).toISOString(),
-                        author: `r/${p.subreddit}`,
-                        score: p.score,
-                        contentHash: p.id,
-                        rawData: p,
-                    });
-                }
+                // Filter out very low-score posts — these are likely noise
+                if ((p.score || 0) < minScore) return;
+                if (!p.title) return;
+
+                items.push({
+                    id: `reddit-${p.id}`,
+                    source: 'reddit',
+                    title: p.title,
+                    summary: p.selftext ? p.selftext.substring(0, 500) : p.title,
+                    url: `https://reddit.com${p.permalink}`,
+                    publishedAt: new Date(p.created_utc * 1000).toISOString(),
+                    author: `r/${p.subreddit}`,
+                    score: p.score,
+                    contentHash: p.id,
+                    rawData: p,
+                });
             });
         });
 

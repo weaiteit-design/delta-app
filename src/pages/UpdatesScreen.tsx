@@ -23,13 +23,24 @@ interface UpdatesScreenProps {
     onStartLesson: (lesson: LessonData) => void;
 }
 
+function getTypeColor(type: string): string {
+    if (type === 'trick') return colors.orange;
+    if (type === 'capability') return colors.red;
+    if (type === 'workflow') return colors.blue;
+    if (type === 'new-tool') return colors.green;
+    return colors.accent2;
+}
+
 export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenProps) {
-    const [filter, setFilter] = useState('⚡ For You');
     const [updates, setUpdates] = useState<VerifiedUpdate[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [filter, setFilter] = useState('All');
     const [generatingLesson, setGeneratingLesson] = useState(false);
-    const [saved, setSaved] = useState(false);
+    // Per-item save tracking — persists across screens
+    const [savedIds, setSavedIds] = useState<Set<string>>(
+        () => new Set(storageService.getUser().savedArticleIds)
+    );
 
     const user = storageService.getUser();
 
@@ -41,41 +52,14 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
         return () => { mounted = false; };
     }, []);
 
-    // Pipeline health stats
-    const stats = getPipelineStats();
-    const activeSources = Object.values(stats?.sourceCounts || {}).filter(n => n > 0).length;
-    const totalSources = Math.max(Object.keys(stats?.sourceCounts || {}).length, 6);
-
-    // Personalised scoring
-    const scoredUpdates = updates.map(u => ({
-        update: u,
-        relevance: scoreForUser(u, user),
-    }));
-
-    const hero = updates.length > 0 ? updates[0] : null;
-
-    const rest = updates.length <= 3 ? updates : updates.slice(1);
-
-    const filtered = (() => {
-        if (filter === '⚡ For You') {
-            const baseList = scoredUpdates.length <= 3
-                ? scoredUpdates
-                : scoredUpdates.filter(s => s.update.id !== hero?.id);
-
-            return baseList
-                .sort((a, b) => b.relevance - a.relevance)
-                .map(s => s.update);
-        }
-        if (filter === 'All') return rest;
-        return rest.filter(n => {
-            if (filter === '💡 Tricks') return n.type === 'trick';
-            if (filter === '🔄 Workflows') return n.type === 'workflow';
-            if (filter === '🆕 New Tools') return n.type === 'new-tool';
-            if (filter === '🧠 Capabilities') return n.type === 'capability';
-            if (filter === '🔧 Tool Updates') return n.type === 'tool-update';
-            return true;
+    const toggleSave = (id: string) => {
+        storageService.toggleArticleSave(id);
+        setSavedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
         });
-    })();
+    };
 
     const handleRefresh = async () => {
         if (refreshing) return;
@@ -105,13 +89,34 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
         }
     };
 
-    const getTypeColor = (type: string) => {
-        if (type === 'trick') return colors.orange;
-        if (type === 'capability') return colors.red;
-        if (type === 'workflow') return colors.blue;
-        if (type === 'new-tool') return colors.green;
-        return colors.accent2;
-    };
+    // Pipeline health stats
+    const stats = getPipelineStats();
+    const activeSources = Object.values(stats?.sourceCounts || {}).filter(n => n > 0).length;
+    const totalSources = Math.max(Object.keys(stats?.sourceCounts || {}).length, 7);
+
+    // Personalised scoring — hero is top-scored item
+    const scoredUpdates = updates.map(u => ({
+        update: u,
+        relevance: scoreForUser(u, user),
+    }));
+
+    const hero = scoredUpdates.length > 0
+        ? scoredUpdates.sort((a, b) => b.relevance - a.relevance)[0].update
+        : null;
+
+    const rest = updates.length <= 3 ? updates : updates.filter(u => u.id !== hero?.id);
+
+    const filtered = (() => {
+        if (filter === 'All') return rest;
+        return rest.filter(n => {
+            if (filter === '💡 Tricks') return n.type === 'trick';
+            if (filter === '🔄 Workflows') return n.type === 'workflow';
+            if (filter === '🆕 New Tools') return n.type === 'new-tool';
+            if (filter === '🧠 Capabilities') return n.type === 'capability';
+            if (filter === '🔧 Tool Updates') return n.type === 'tool-update';
+            return true;
+        });
+    })();
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -120,7 +125,10 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
 
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Updates</Text>
+                <View>
+                    <Text style={styles.headerTitle}>Updates</Text>
+                    <Text style={styles.headerSubtitle}>Personalised for {user.role}</Text>
+                </View>
                 {/* Refresh + pipeline source indicator */}
                 <View style={styles.headerRight}>
                     <TouchableOpacity
@@ -148,15 +156,15 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                     </View>
                     {activeSources > 0 && (
                         <View style={styles.sourcesBadge}>
-                            <Text style={styles.sourcesText}>{activeSources}/{totalSources} sources</Text>
+                            <Text style={styles.sourcesText}>{activeSources}/{totalSources} src</Text>
                         </View>
                     )}
                 </View>
             </View>
 
-            {/* Filter chips */}
+            {/* Type filter chips */}
             <FilterChips
-                chips={['⚡ For You', 'All', '💡 Tricks', '🔄 Workflows', '🆕 New Tools', '🧠 Capabilities', '🔧 Tool Updates']}
+                chips={['All', '💡 Tricks', '🔄 Workflows', '🆕 New Tools', '🧠 Capabilities', '🔧 Tool Updates']}
                 active={filter}
                 onSelect={setFilter}
             />
@@ -175,10 +183,13 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                     style={styles.heroCard}
                     activeOpacity={0.85}
                 >
-                    {/* Gradient image zone - use plain backgroundColor */}
+                    {/* Gradient image zone */}
                     <View style={styles.heroImageZone}>
                         <View style={styles.heroImageOverlay} />
                         <Text style={styles.heroEmoji}>{hero.emoji || '🚀'}</Text>
+                        <View style={styles.topPickBadge}>
+                            <Text style={styles.topPickText}>TOP PICK FOR YOU</Text>
+                        </View>
                     </View>
                     {/* Body */}
                     <View style={styles.heroBody}>
@@ -187,6 +198,7 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                                 {hero.tag}
                             </Text>
                             <FomoScore score={hero.fomoScore} />
+                            <Text style={styles.heroTime}>· {hero.timeAgo}</Text>
                         </View>
                         <Text style={styles.heroTitle}>{hero.title}</Text>
                         <Text style={styles.heroSummary} numberOfLines={2}>{hero.shortSummary}</Text>
@@ -197,7 +209,7 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                                 activeOpacity={0.8}
                             >
                                 <Play size={14} color="#fff" fill="#fff" />
-                                <Text style={styles.readMoreText}>Read More</Text>
+                                <Text style={styles.readMoreText}>Read</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleHeroLesson}
@@ -211,14 +223,15 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                onPress={() => setSaved(!saved)}
-                                style={[styles.saveBtn, saved && styles.saveBtnActive]}
+                                onPress={() => toggleSave(hero.id)}
+                                style={[styles.saveBtn, savedIds.has(hero.id) && styles.saveBtnActive]}
                                 activeOpacity={0.8}
                             >
-                                <Bookmark size={14} color={saved ? colors.yellow : colors.text2} fill={saved ? colors.yellow : 'none'} />
-                                <Text style={[styles.saveText, saved && styles.saveTextActive]}>
-                                    {saved ? 'Saved' : 'Save'}
-                                </Text>
+                                <Bookmark
+                                    size={14}
+                                    color={savedIds.has(hero.id) ? colors.yellow : colors.text2}
+                                    fill={savedIds.has(hero.id) ? colors.yellow : 'none'}
+                                />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -226,7 +239,7 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
             ) : null}
 
             {/* More Updates */}
-            <SectionLabel>📰 MORE UPDATES</SectionLabel>
+            <SectionLabel>📡 ALL UPDATES</SectionLabel>
             <View style={styles.updatesList}>
                 {loading ? (
                     [1, 2, 3].map(i => (
@@ -236,6 +249,15 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
                             <View style={styles.skeletonLine40} />
                         </View>
                     ))
+                ) : filtered.length === 0 ? (
+                    <View style={{ padding: 24, alignItems: 'center', backgroundColor: colors.surface2, borderRadius: 20, borderWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ fontSize: 28, marginBottom: 8 }}>📡</Text>
+                        <Text style={{ fontSize: 12, color: colors.text3, textAlign: 'center' }}>
+                            {filter !== 'All'
+                                ? `No ${filter.replace(/[^\w\s]/g, '').trim()} in the feed right now.`
+                                : 'No updates yet — sources are loading. Check back shortly!'}
+                        </Text>
+                    </View>
                 ) : filtered.map((item) => (
                     <NewsCard
                         key={item.id}
@@ -267,6 +289,11 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '800',
         color: colors.text1,
+    },
+    headerSubtitle: {
+        fontSize: 12,
+        color: colors.text3,
+        marginTop: 2,
     },
     headerRight: {
         flexDirection: 'row',
@@ -369,6 +396,23 @@ const styles = StyleSheet.create({
         fontSize: 48,
         zIndex: 1,
     },
+    topPickBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 12,
+        backgroundColor: 'rgba(99,102,241,0.25)',
+        borderWidth: 1,
+        borderColor: 'rgba(99,102,241,0.4)',
+        borderRadius: 20,
+        paddingVertical: 3,
+        paddingHorizontal: 9,
+    },
+    topPickText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: colors.accent2,
+        letterSpacing: 0.8,
+    },
     heroBody: {
         padding: 16,
         paddingBottom: 18,
@@ -384,6 +428,10 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 0.6,
         textTransform: 'uppercase',
+    },
+    heroTime: {
+        fontSize: 10,
+        color: colors.text3,
     },
     heroTitle: {
         fontSize: 16,
@@ -439,26 +487,17 @@ const styles = StyleSheet.create({
         color: colors.text3,
     },
     saveBtn: {
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        justifyContent: 'center',
         backgroundColor: 'transparent',
         borderWidth: 1,
         borderColor: colors.border2,
         borderRadius: 14,
         paddingVertical: 9,
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
     },
     saveBtnActive: {
         borderColor: 'rgba(251,191,36,0.3)',
-    },
-    saveText: {
-        color: colors.text2,
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    saveTextActive: {
-        color: colors.yellow,
     },
     updatesList: {
         paddingHorizontal: 20,

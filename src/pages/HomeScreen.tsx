@@ -78,7 +78,24 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                     : trendingTools;
 
     const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+    // Daily Hack — find best trick/workflow, or use a static fallback so the section always renders
     const dailyHack = [...updates].find(u => u.type === 'trick' || u.type === 'workflow');
+    const fallbackHack: VerifiedUpdate = {
+        id: 'daily-hack-fallback',
+        title: 'The "Before & After" Prompt Technique',
+        shortSummary: 'When asking AI to improve something, always show it the "before" version first. Paste your original text, then say: "Rewrite this to be more concise and professional." The AI produces dramatically better results when it can see what it\'s improving.',
+        type: 'trick',
+        tag: 'AI TRICK',
+        source: 'Delta AI',
+        sourceDomain: 'delta.app',
+        timeAgo: 'Today',
+        fomoScore: 9,
+        emoji: '💡',
+        publishedAt: new Date().toISOString(),
+        actionability: 10,
+    };
+    const displayedHack = dailyHack || (!loading ? fallbackHack : null);
 
     const stats = getPipelineStats();
     const counts = (stats?.sourceCounts || {}) as Record<string, number>;
@@ -104,22 +121,31 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                 <StreakBar />
             </View>
 
-            {/* Daily AI Hack */}
-            {dailyHack && (
+            {/* Daily AI Hack — always shown: loading skeleton → live hack → static fallback */}
+            {(loading || displayedHack) && (
                 <>
                     <SectionLabel>💡 DAILY AI HACK</SectionLabel>
                     <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
-                        <TouchableOpacity
-                            onPress={() => onSelectUpdate(dailyHack)}
-                            style={styles.hackCard}
-                        >
-                            <View style={styles.hackMeta}>
-                                <Text style={styles.hackTag}>{dailyHack.tag}</Text>
-                                <Text style={styles.hackTime}>• {dailyHack.timeAgo}</Text>
+                        {loading ? (
+                            <View style={styles.hackCard}>
+                                <View style={[styles.skeleton, { width: '25%', height: 10, marginBottom: 10 }]} />
+                                <View style={[styles.skeleton, { width: '85%', height: 16, marginBottom: 8 }]} />
+                                <View style={[styles.skeleton, { width: '70%', height: 12 }]} />
                             </View>
-                            <Text style={styles.hackTitle}>{dailyHack.title}</Text>
-                            <Text style={styles.hackSummary} numberOfLines={2}>{dailyHack.shortSummary}</Text>
-                        </TouchableOpacity>
+                        ) : displayedHack ? (
+                            <TouchableOpacity
+                                onPress={() => onSelectUpdate(displayedHack)}
+                                style={styles.hackCard}
+                                activeOpacity={0.85}
+                            >
+                                <View style={styles.hackMeta}>
+                                    <Text style={styles.hackTag}>{displayedHack.tag}</Text>
+                                    <Text style={styles.hackTime}>• {displayedHack.timeAgo}</Text>
+                                </View>
+                                <Text style={styles.hackTitle}>{displayedHack.title}</Text>
+                                <Text style={styles.hackSummary} numberOfLines={2}>{displayedHack.shortSummary}</Text>
+                            </TouchableOpacity>
+                        ) : null}
                     </View>
                 </>
             )}
@@ -155,6 +181,11 @@ export function HomeScreen({ onProfile, onSelectTool, onSelectUpdate, onStartLes
                     [1, 2, 3].map(i => (
                         <View key={i} style={styles.skeleton} />
                     ))
+                ) : topNews.length === 0 ? (
+                    <View style={{ padding: 24, alignItems: 'center', backgroundColor: colors.surface2, borderRadius: 20, borderWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ fontSize: 28, marginBottom: 8 }}>📡</Text>
+                        <Text style={{ fontSize: 12, color: colors.text3, textAlign: 'center', lineHeight: 18 }}>No live updates available right now. Check back shortly!</Text>
+                    </View>
                 ) : (
                     topNews.map((item) => (
                         <NewsCard key={item.id} item={item} onClick={() => onSelectUpdate(item)} />

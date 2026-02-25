@@ -59,9 +59,12 @@ CREATE TABLE tools (
     billing_freq    TEXT,
     has_free_tier   BOOLEAN GENERATED ALWAYS AS (pricing_model IN ('free', 'freemium', 'free_trial')) STORED,
 
-    -- Role-based match scores (precomputed JSONB per role)
-    -- e.g. { "Developer": 8, "Marketer": 3, ... }
+    -- Delta-specific
+    delta_analysis  TEXT,
     role_scores     JSONB DEFAULT '{}',
+    difficulty_avg  NUMERIC(3,1) DEFAULT 2,
+    best_for        TEXT[],
+    use_cases       TEXT[],
 
     -- Semantic search vector (1536 dims, text-embedding-3-small)
     embed_vector    vector(1536),
@@ -77,7 +80,7 @@ CREATE INDEX idx_tools_views ON tools(views_count DESC);
 CREATE INDEX idx_tools_pricing ON tools(pricing_model);
 CREATE INDEX idx_tools_created ON tools(created_at DESC);
 CREATE INDEX idx_tools_name_trgm ON tools USING gin(name gin_trgm_ops);
-CREATE INDEX idx_tools_tagline_trgm ON tools USING gin(tagline gin_trgm_ops);
+CREATE INDEX idx_tools_tagline_trgm ON tools USING gin(COALESCE(tagline, '') gin_trgm_ops);
 CREATE INDEX idx_tools_embed ON tools USING ivfflat(embed_vector vector_cosine_ops) WITH (lists = 100);
 
 CREATE TABLE tasks (
@@ -129,6 +132,7 @@ CREATE TABLE user_profiles (
     industry            TEXT,
     goals               TEXT[],
     ai_level            TEXT,
+    skill_level         TEXT DEFAULT 'beginner',
     learning_style      TEXT,
     preferred_categories TEXT[],
     tools_known         TEXT[],
@@ -211,6 +215,9 @@ CREATE TABLE lessons (
     quiz_options    TEXT[],
     quiz_answer_idx INT,
     completion_count INT DEFAULT 0,
+    pill_label      TEXT DEFAULT 'LESSON',
+    practice_task   TEXT,
+    task_prompt     TEXT,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );

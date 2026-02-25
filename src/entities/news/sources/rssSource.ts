@@ -1,22 +1,29 @@
 import { RawContentItem } from '../../../shared/types/types';
 
 const RSS_FEEDS = [
-    // Company blogs
+    // AI lab official blogs — highest signal, always relevant
     { name: 'OpenAI', url: 'https://openai.com/blog/rss.xml' },
     { name: 'Anthropic', url: 'https://www.anthropic.com/feed.xml' },
     { name: 'Google AI', url: 'https://blog.google/technology/ai/rss/' },
     { name: 'Meta AI', url: 'https://ai.meta.com/blog/rss/' },
     { name: 'Mistral', url: 'https://mistral.ai/news/feed.xml' },
     { name: 'HuggingFace', url: 'https://huggingface.co/blog/feed.xml' },
+    { name: 'DeepMind', url: 'https://deepmind.google/blog/rss.xml' },
+    // AI news publications
+    { name: 'VentureBeat AI', url: 'https://venturebeat.com/category/ai/feed/' },
+    { name: 'MIT Tech Review AI', url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed' },
+    { name: 'TechCrunch AI', url: 'https://techcrunch.com/tag/artificial-intelligence/feed/' },
+    { name: 'The Verge AI', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml' },
+    { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
+    // Research & tools
     { name: 'ArXiv AI', url: 'http://export.arxiv.org/rss/cs.AI' },
+    { name: 'Product Hunt AI', url: 'https://www.producthunt.com/topics/artificial-intelligence.rss' },
     // Top AI newsletters
     { name: 'TLDR AI', url: 'https://tldr.tech/ai/rss' },
     { name: 'The Rundown AI', url: 'https://www.therundown.ai/feed' },
     { name: 'Bens Bites', url: 'https://bensbites.beehiiv.com/feed' },
     { name: 'Import AI', url: 'https://importai.substack.com/feed' },
     { name: 'The Batch', url: 'https://www.deeplearning.ai/the-batch/feed/' },
-    { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
-    { name: 'The Verge AI', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml' },
 ];
 
 const PROXY_CHAIN = [

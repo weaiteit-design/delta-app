@@ -73,15 +73,16 @@ function computeActionability(item: RawContentItem, type: VerifiedUpdate['type']
     if (type === 'capability') score += 2;  // capabilities are informational
 
     // Actionable language boost
-    const actionWords = ['try', 'use', 'build', 'create', 'how to', 'step', 'prompt', 'download', 'free', 'paste this', 'open', 'guide', 'tutorial'];
+    const actionWords = ['try', 'use', 'build', 'create', 'how to', 'step', 'prompt', 'download', 'free', 'paste this', 'open', 'guide', 'tutorial', 'learn', 'master', 'improve'];
     if (actionWords.some(w => text.includes(w))) score += 3;
 
     // Named tool mention boost (user can immediately go try it)
-    const tools = ['chatgpt', 'claude', 'cursor', 'midjourney', 'gemini', 'perplexity', 'lovable', 'v0', 'copilot', 'notion', 'canva', 'runway', 'elevenlabs', 'suno', 'replit', 'deepseek', 'mistral'];
+    const tools = ['chatgpt', 'claude', 'cursor', 'midjourney', 'gemini', 'perplexity', 'lovable', 'v0', 'copilot', 'notion', 'canva', 'runway', 'elevenlabs', 'suno', 'replit', 'deepseek', 'llama', 'mistral'];
     if (tools.some(t => text.includes(t))) score += 2;
 
-    // Source credibility boost
-    if (item.source === 'rss' || (item.score && item.score > 100)) score += 1;
+    // Source credibility boost — official AI company blogs are inherently valuable
+    if (item.source === 'rss') score += 2;
+    else if (item.score && item.score > 100) score += 1;
 
     return Math.min(10, Math.max(0, score));
 }
@@ -162,7 +163,7 @@ function rawToVerified(items: RawContentItem[]): { updates: VerifiedUpdate[]; ne
         const fomoScore = computeFomoScore(item, classification);
         const actionability = computeActionability(item, classification.type);
 
-        // Skip low-actionability content (junk/fluff)
+        // Skip very low-actionability content — threshold of 4 allows capability/update news through
         if (actionability < 4) continue;
 
         const update: VerifiedUpdate = {
@@ -396,34 +397,42 @@ class ContentPipeline {
         const deduped = deduplicateItems(allRaw);
         console.log('[Pipeline] After dedup:', deduped.length);
 
-        // Post-dedup: AI relevance filter (broad keywords, no version-specific strings)
-        const AI_CORE = [
+        // Post-dedup: AI relevance filter — broad keywords covering models, labs, tools, and techniques
+        const AI_TERMS = [
             // General AI terms
-            'ai', 'artificial intelligence', 'llm', 'large language model', 'machine learning',
-            'deep learning', 'neural network', 'transformer', 'generative ai', 'gen ai',
+            'artificial intelligence', ' ai ', ' ai,', ' ai.', 'machine learning', 'deep learning',
+            'neural network', 'large language model', 'llm', 'generative ai', 'gen ai', 'transformer',
+            // Techniques & workflows
             'chatbot', 'ai tool', 'new tool', 'automation', 'workflow', 'extension', 'plugin',
-            'prompting', 'prompt engineering', 'copilot', 'agent', 'ai agent', 'rag',
-            'retrieval augmented', 'fine-tun', 'embedding', 'multimodal', 'diffusion',
-            // Named tools & companies
-            'chatgpt', 'gpt', 'openai', 'claude', 'anthropic', 'gemini', 'google ai',
-            'midjourney', 'stable diffusion', 'dall-e', 'cursor', 'perplexity',
-            'lovable', 'v0', 'replit', 'elevenlabs', 'suno', 'runway', 'luma', 'kling',
-            'deepseek', 'mistral', 'hugging face', 'langchain', 'llamaindex',
+            'prompting', 'prompt engineering', 'fine-tun', 'ai agent', 'rag', 'vector', 'ai-powered',
+            'ai model', 'language model', 'ai workflow', 'retrieval augmented', 'embedding',
+            'multimodal', 'diffusion', 'agent', 'copilot',
+            // Major labs
+            'openai', 'anthropic', 'deepmind', 'google ai', 'meta ai', 'mistral', 'hugging face',
+            'langchain', 'llamaindex',
+            // Models & products
+            'chatgpt', 'claude', 'gemini', 'gpt-', 'gpt', 'llama', 'deepseek', 'grok',
+            // Tools
+            'midjourney', 'stable diffusion', 'dall-e', 'perplexity', 'cursor', 'elevenlabs',
+            'suno', 'runway', 'replit', 'lovable', 'kling', 'luma', 'v0', 'notion ai', 'canva ai',
+            'github copilot',
             // Content categories
             'text-to-image', 'text-to-video', 'text-to-speech', 'voice clone',
             'code generation', 'ai coding', 'ai writing', 'ai image', 'ai video', 'ai music',
-            'notion ai', 'canva ai', 'github copilot', 'model release', 'open source model',
+            'model release', 'open source model',
         ];
         const relevantItems = deduped.filter((item: RawContentItem) => {
             // Phase 1: Kill junk content (opinions, drama, sports, art fluff)
             if (isJunkContent(item)) return false;
-            // Phase 2: Must contain at least one CORE tool/workflow keyword
+            // Phase 2: RSS feeds come from official AI company blogs — always relevant
+            if (item.source === 'rss') return true;
+            // Phase 3: For Reddit/HN/news — require at least one AI relevance keyword
             const text = (item.title + ' ' + (item.summary || '')).toLowerCase();
-            return AI_CORE.some(k => text.includes(k));
+            return AI_TERMS.some(k => text.includes(k));
         });
         console.log('[Pipeline] After relevance + junk filter:', relevantItems.length);
 
-        // 3-tier fallback: strict AI_CORE → soft (junk-only removal) → all deduped
+        // 3-tier fallback: strict AI_TERMS → soft (junk-only removal) → all deduped
         let itemsToClassify: RawContentItem[];
         if (relevantItems.length >= 5) {
             itemsToClassify = relevantItems;
@@ -690,6 +699,76 @@ class ContentPipeline {
                 type: 'trick', tag: 'AI TRICK', source: 'Notion', sourceDomain: 'notion.so',
                 timeAgo: '1d ago', fomoScore: 5, url: 'https://notion.so', emoji: '💡',
                 publishedAt: new Date(Date.now() - 32 * 3600 * 1000).toISOString(), actionability: 6,
+            },
+            {
+                id: 'fb-21', title: 'Lovable 2.0 — Ship Full-Stack Apps in Minutes',
+                shortSummary: 'Lovable\'s major update adds backend generation, Postgres database schemas, and Supabase auth — all generated from natural language descriptions.',
+                type: 'new-tool', tag: 'NEW TOOL', source: 'Lovable', sourceDomain: 'lovable.dev',
+                timeAgo: '8h ago', fomoScore: 8, url: 'https://lovable.dev', emoji: '💜',
+                publishedAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), actionability: 9,
+            },
+            {
+                id: 'fb-22', title: 'The 5-step AI content workflow replacing a whole team',
+                shortSummary: '1. Perplexity for research → 2. Claude for long-form draft → 3. ChatGPT for headline variants → 4. Midjourney for visuals → 5. Runway to animate the best image. Each step takes under 3 minutes.',
+                type: 'workflow', tag: 'WORKFLOW', source: 'r/SideProject', sourceDomain: 'reddit.com',
+                timeAgo: '3h ago', fomoScore: 9, url: 'https://reddit.com', emoji: '🔄',
+                publishedAt: new Date(Date.now() - 3 * 3600 * 1000).toISOString(), actionability: 10,
+            },
+            {
+                id: 'fb-23', title: 'Google Gemini 2.0 Flash is now free via API',
+                shortSummary: 'Gemini 2.0 Flash is faster and cheaper than GPT-4o for most tasks, and now has a free API tier. One million tokens per minute. If you\'re not testing it today, you\'re leaving free inference on the table.',
+                type: 'tool-update', tag: 'TOOL UPDATE', source: 'Google AI', sourceDomain: 'blog.google',
+                timeAgo: '6h ago', fomoScore: 9, url: 'https://blog.google', emoji: '🔧',
+                publishedAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(), actionability: 8,
+            },
+            {
+                id: 'fb-24', title: 'ElevenLabs can now clone your voice in 10 seconds',
+                shortSummary: 'Record a 10-second audio clip of yourself reading any sentence. ElevenLabs Instant Voice Clone creates a model of your voice that can then read anything — from emails to podcast scripts.',
+                type: 'new-tool', tag: 'NEW TOOL', source: 'ElevenLabs', sourceDomain: 'elevenlabs.io',
+                timeAgo: '10h ago', fomoScore: 8, url: 'https://elevenlabs.io', emoji: '🎙️',
+                publishedAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), actionability: 9,
+            },
+            {
+                id: 'fb-25', title: 'The "Rubber Duck" trick: explain your problem to Claude before asking',
+                shortSummary: 'Instead of asking "Fix this bug", first write: "I\'m trying to do X. My code does Y. I think the problem is Z." Claude\'s answers improve dramatically when you give it your own hypothesis to react to.',
+                type: 'trick', tag: 'AI TRICK', source: 'r/LocalLLaMA', sourceDomain: 'reddit.com',
+                timeAgo: '4h ago', fomoScore: 8, url: 'https://reddit.com', emoji: '💡',
+                publishedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(), actionability: 10,
+            },
+            {
+                id: 'fb-26', title: 'Anthropic releases Claude 3.7 Sonnet with extended thinking',
+                shortSummary: 'Claude 3.7 Sonnet introduces a "thinking" mode that shows its internal reasoning before giving a final answer — dramatically improving performance on coding, maths, and complex analysis tasks.',
+                type: 'capability', tag: 'AI CAPABILITY', source: 'Anthropic', sourceDomain: 'anthropic.com',
+                timeAgo: '1d ago', fomoScore: 10, url: 'https://anthropic.com', emoji: '🧠',
+                publishedAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(), actionability: 8,
+            },
+            {
+                id: 'fb-27', title: 'Build a daily AI email digest in 20 minutes using Make + Perplexity',
+                shortSummary: 'Trigger: every morning at 7am. Step 1: Perplexity API call → "Summarise top 5 AI news from the last 24 hours in bullet points". Step 2: Format with HTML template. Step 3: Send via Gmail. Zero code required.',
+                type: 'workflow', tag: 'WORKFLOW', source: 'r/automation', sourceDomain: 'reddit.com',
+                timeAgo: '7h ago', fomoScore: 9, url: 'https://reddit.com', emoji: '🔄',
+                publishedAt: new Date(Date.now() - 7 * 3600 * 1000).toISOString(), actionability: 10,
+            },
+            {
+                id: 'fb-28', title: 'DeepSeek R2 benchmarks leak — beats GPT-4o on coding at 1/10th the cost',
+                shortSummary: 'Leaked benchmark results show DeepSeek R2 surpassing GPT-4o on HumanEval and SWE-bench while running at under $0.01 per million tokens. If confirmed, this changes the cost calculus for every AI startup.',
+                type: 'capability', tag: 'AI CAPABILITY', source: 'r/LocalLLaMA', sourceDomain: 'reddit.com',
+                timeAgo: '14h ago', fomoScore: 9, url: 'https://reddit.com', emoji: '🚀',
+                publishedAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(), actionability: 7,
+            },
+            {
+                id: 'fb-29', title: 'The "Brain Dump" prompt for Claude',
+                shortSummary: 'Paste your messy voice notes into Claude and use this prompt: "Act as an executive assistant. Organize this brain dump into a bulleted action plan sorted by priority."',
+                type: 'trick', tag: 'AI TRICK', source: 'r/AIPromptProgramming', sourceDomain: 'reddit.com',
+                timeAgo: '11h ago', fomoScore: 6, url: 'https://reddit.com', emoji: '💡',
+                publishedAt: new Date(Date.now() - 11 * 3600 * 1000).toISOString(), actionability: 7,
+            },
+            {
+                id: 'fb-30', title: 'Cursor\'s multi-file Agent mode can build entire features',
+                shortSummary: 'Press Cmd+I and ask Cursor to "Add Stripe subscriptions to this Next.js app". It reads your docs, installs packages, and writes code across 15 files simultaneously.',
+                type: 'capability', tag: 'AI CAPABILITY', source: 'Cursor', sourceDomain: 'cursor.com',
+                timeAgo: '1d ago', fomoScore: 9, url: 'https://cursor.com', emoji: '⚡',
+                publishedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), actionability: 10,
             },
         ];
 

@@ -1,15 +1,15 @@
 import { RawContentItem } from '../../../shared/types/types';
 
-// Broad set of AI-related keywords for title filtering
+// Combined AI keyword set from both branches — broad coverage
 const AI_KEYWORDS = [
-    'ai', 'llm', 'gpt', 'claude', 'openai', 'anthropic', 'gemini', 'chatgpt',
-    'cursor', 'copilot', 'machine learning', 'deep learning', 'neural',
-    'transformer', 'generative', 'diffusion', 'prompt', 'rag', 'embedding',
-    'fine-tun', 'multimodal', 'agent', 'perplexity', 'midjourney', 'deepseek',
-    'mistral', 'hugging face', 'langchain', 'automation', 'chatbot',
-    'stable diffusion', 'dall-e', 'text-to-image', 'text-to-video',
-    'voice clone', 'code generation', 'ai coding', 'llamaindex',
-    'large language model', 'artificial intelligence',
+    'ai', 'llm', 'gpt', 'claude', 'chatgpt', 'gemini', 'openai', 'anthropic',
+    'deepmind', 'llama', 'mistral', 'diffusion', 'machine learning', 'deep learning',
+    'neural', 'transformer', 'generative', 'cursor', 'midjourney', 'deepseek',
+    'language model', 'large language model', 'artificial intelligence', 'copilot',
+    'stable diffusion', 'hugging face', 'inference', 'fine-tun', 'embedding',
+    'prompt', 'rag', 'multimodal', 'agent', 'perplexity', 'langchain', 'automation',
+    'chatbot', 'dall-e', 'text-to-image', 'text-to-video', 'voice clone',
+    'code generation', 'ai coding', 'llamaindex',
 ];
 
 export async function fetchHackerNewsPosts(): Promise<RawContentItem[]> {
