@@ -385,7 +385,9 @@ class ContentPipeline {
                 cacheHit: false,
             };
             savePipelineStats(stats);
-            return this.getFallbackUpdates();
+            const fallbacks = this.getFallbackUpdates();
+            storageService.setCache('delta_pipeline_updates', fallbacks);
+            return fallbacks;
         }
 
         // Deduplicate across sources
@@ -537,161 +539,166 @@ class ContentPipeline {
         }
     }
 
-    // Rotating pool of curated AI tips — changes every 6 hours
+    // Rotating pool of curated AI tips — changes every hour (matches cache TTL)
     private getFallbackUpdates(): VerifiedUpdate[] {
         const pool: VerifiedUpdate[] = [
             {
                 id: 'fb-1', title: 'Use ChatGPT Canvas to edit code blocks inline',
                 shortSummary: 'Highlight specific blocks of code in the Canvas view and ask ChatGPT to refactor it. It edits inline without regenerating the whole file — great for targeted changes.',
                 type: 'trick', tag: 'AI TRICK', source: 'r/ChatGPTPro', sourceDomain: 'reddit.com',
-                timeAgo: '3h ago', fomoScore: 9, url: 'https://reddit.com', emoji: '💡',
-                publishedAt: new Date(Date.now() - 3 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '3h ago', fomoScore: 6, url: 'https://reddit.com', emoji: '💡',
+                publishedAt: new Date(Date.now() - 3 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-2', title: 'Automate research with Perplexity Spaces',
                 shortSummary: 'Create a Perplexity Space, upload your guidelines, and ask it to synthesize multiple sources into structured outlines. Works for blog posts, reports, and scripts.',
                 type: 'workflow', tag: 'WORKFLOW', source: 'r/ClaudeAI', sourceDomain: 'reddit.com',
-                timeAgo: '4h ago', fomoScore: 9, url: 'https://perplexity.ai', emoji: '🔄',
-                publishedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '4h ago', fomoScore: 5, url: 'https://perplexity.ai', emoji: '🔄',
+                publishedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-3', title: 'Claude Projects: persistent context across conversations',
                 shortSummary: 'Upload docs to a Claude Project and every new conversation in that project automatically has full context. No more re-explaining your codebase every chat.',
                 type: 'trick', tag: 'AI TRICK', source: 'Anthropic', sourceDomain: 'anthropic.com',
-                timeAgo: '5h ago', fomoScore: 9, url: 'https://claude.ai', emoji: '💡',
-                publishedAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '5h ago', fomoScore: 6, url: 'https://claude.ai', emoji: '💡',
+                publishedAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-4', title: 'Cursor .cursorrules file — teach AI your code style',
                 shortSummary: 'Add a .cursorrules file to your project root with your tech stack, patterns, and conventions. Cursor reads it before every interaction and writes code in YOUR style.',
                 type: 'trick', tag: 'AI TRICK', source: 'Cursor', sourceDomain: 'cursor.com',
-                timeAgo: '6h ago', fomoScore: 8, url: 'https://cursor.com', emoji: '⚡',
-                publishedAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '6h ago', fomoScore: 5, url: 'https://cursor.com', emoji: '⚡',
+                publishedAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-5', title: 'DeepSeek R1: open-source reasoning that rivals GPT-4',
                 shortSummary: 'DeepSeek R1 matches GPT-4 on reasoning benchmarks while being fully open-source. Run it locally with Ollama or use the free hosted version.',
                 type: 'capability', tag: 'AI CAPABILITY', source: 'DeepSeek', sourceDomain: 'deepseek.com',
-                timeAgo: '7h ago', fomoScore: 8, url: 'https://chat.deepseek.com', emoji: '🧠',
-                publishedAt: new Date(Date.now() - 7 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '7h ago', fomoScore: 6, url: 'https://chat.deepseek.com', emoji: '🧠',
+                publishedAt: new Date(Date.now() - 7 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-6', title: 'Gemini\'s 1M+ context window for full-codebase analysis',
                 shortSummary: 'Paste your entire codebase into Gemini and ask for cross-file architectural reviews. It catches inconsistencies that file-by-file tools miss.',
                 type: 'trick', tag: 'AI TRICK', source: 'Google AI', sourceDomain: 'gemini.google.com',
-                timeAgo: '8h ago', fomoScore: 8, url: 'https://gemini.google.com', emoji: '💡',
-                publishedAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '8h ago', fomoScore: 5, url: 'https://gemini.google.com', emoji: '💡',
+                publishedAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-7', title: 'v0 by Vercel: generate production React components from text',
                 shortSummary: 'Describe a UI component in plain English and v0 generates clean, production-ready React + Tailwind code. Great for rapid prototyping.',
                 type: 'new-tool', tag: 'NEW TOOL', source: 'Vercel', sourceDomain: 'v0.dev',
-                timeAgo: '9h ago', fomoScore: 8, url: 'https://v0.dev', emoji: '🆕',
-                publishedAt: new Date(Date.now() - 9 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '9h ago', fomoScore: 6, url: 'https://v0.dev', emoji: '🆕',
+                publishedAt: new Date(Date.now() - 9 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-8', title: 'ElevenLabs voice cloning in under 30 seconds',
                 shortSummary: 'Record 30 seconds of your voice and ElevenLabs creates a near-perfect clone. Use it for video narration, podcasts, or audiobooks in your own voice.',
                 type: 'new-tool', tag: 'NEW TOOL', source: 'ElevenLabs', sourceDomain: 'elevenlabs.io',
-                timeAgo: '10h ago', fomoScore: 7, url: 'https://elevenlabs.io', emoji: '🆕',
-                publishedAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '10h ago', fomoScore: 5, url: 'https://elevenlabs.io', emoji: '🆕',
+                publishedAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-9', title: 'Chain-of-thought prompting: force better reasoning',
                 shortSummary: 'Add "Think step by step" or "Show your reasoning" to any prompt. This simple technique dramatically improves accuracy on math, logic, and analysis tasks.',
                 type: 'trick', tag: 'AI TRICK', source: 'r/AIPromptProgramming', sourceDomain: 'reddit.com',
-                timeAgo: '11h ago', fomoScore: 8, url: 'https://reddit.com', emoji: '💡',
-                publishedAt: new Date(Date.now() - 11 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '11h ago', fomoScore: 6, url: 'https://reddit.com', emoji: '💡',
+                publishedAt: new Date(Date.now() - 11 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-10', title: 'Lovable: build full-stack apps from natural language',
                 shortSummary: 'Describe your app idea in plain English and Lovable generates the frontend, backend, database schemas, and authentication. Deploy in minutes.',
                 type: 'new-tool', tag: 'NEW TOOL', source: 'Lovable', sourceDomain: 'lovable.dev',
-                timeAgo: '12h ago', fomoScore: 8, url: 'https://lovable.dev', emoji: '💜',
-                publishedAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '12h ago', fomoScore: 5, url: 'https://lovable.dev', emoji: '💜',
+                publishedAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-11', title: 'Midjourney style references: consistent brand imagery',
                 shortSummary: 'Use --sref with an image URL to copy its visual style across all your generations. Combine with --cref to keep characters consistent too.',
                 type: 'trick', tag: 'AI TRICK', source: 'Midjourney', sourceDomain: 'midjourney.com',
-                timeAgo: '14h ago', fomoScore: 7, url: 'https://midjourney.com', emoji: '🎨',
-                publishedAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '14h ago', fomoScore: 6, url: 'https://midjourney.com', emoji: '🎨',
+                publishedAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-12', title: 'GitHub Copilot Workspace: plan and implement in one flow',
                 shortSummary: 'Open an issue, let Copilot Workspace analyze it, propose a plan, generate the code across files, and create the PR. Full issue-to-PR automation.',
                 type: 'tool-update', tag: 'TOOL UPDATE', source: 'GitHub', sourceDomain: 'github.com',
-                timeAgo: '16h ago', fomoScore: 8, url: 'https://github.com/features/copilot', emoji: '🔧',
-                publishedAt: new Date(Date.now() - 16 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '16h ago', fomoScore: 5, url: 'https://github.com/features/copilot', emoji: '🔧',
+                publishedAt: new Date(Date.now() - 16 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-13', title: 'Suno AI: generate full songs from text descriptions',
                 shortSummary: 'Type a mood, genre, and topic — Suno generates a complete song with vocals, instruments, and mixing. Great for content soundtracks and jingles.',
                 type: 'new-tool', tag: 'NEW TOOL', source: 'Suno', sourceDomain: 'suno.com',
-                timeAgo: '18h ago', fomoScore: 7, url: 'https://suno.com', emoji: '🎵',
-                publishedAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(), actionability: 8,
+                timeAgo: '18h ago', fomoScore: 6, url: 'https://suno.com', emoji: '🎵',
+                publishedAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-14', title: 'Role + Constraint prompting for better AI output',
                 shortSummary: 'Always start prompts with a role ("You are a senior product manager") then add constraints ("Keep it under 100 words, use bullet points, no jargon"). Quality jumps dramatically.',
                 type: 'trick', tag: 'AI TRICK', source: 'r/ClaudeAI', sourceDomain: 'reddit.com',
-                timeAgo: '20h ago', fomoScore: 8, url: 'https://reddit.com', emoji: '💡',
-                publishedAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '20h ago', fomoScore: 5, url: 'https://reddit.com', emoji: '💡',
+                publishedAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-15', title: 'ChatGPT Custom Instructions: set once, improve every chat',
                 shortSummary: 'Go to Settings → Personalization → Custom Instructions. Enter your role, industry, and preferred output format. Every conversation automatically adapts to your needs.',
                 type: 'workflow', tag: 'WORKFLOW', source: 'OpenAI', sourceDomain: 'openai.com',
-                timeAgo: '22h ago', fomoScore: 8, url: 'https://openai.com', emoji: '🔄',
-                publishedAt: new Date(Date.now() - 22 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '22h ago', fomoScore: 6, url: 'https://openai.com', emoji: '🔄',
+                publishedAt: new Date(Date.now() - 22 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-16', title: 'Replit Agent: describe an app, get working code deployed',
                 shortSummary: 'Replit\'s Agent mode takes a natural language description, writes the code, installs dependencies, fixes errors, and deploys — all automatically.',
                 type: 'capability', tag: 'AI CAPABILITY', source: 'Replit', sourceDomain: 'replit.com',
-                timeAgo: '1d ago', fomoScore: 7, url: 'https://replit.com', emoji: '🧠',
-                publishedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '1d ago', fomoScore: 5, url: 'https://replit.com', emoji: '🧠',
+                publishedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-17', title: 'Perplexity Focus modes: Academic, Writing, Math, Video',
                 shortSummary: 'Switch Perplexity\'s Focus mode to "Academic" for peer-reviewed papers only, "Math" for step-by-step solutions, or "Video" for YouTube-sourced answers.',
                 type: 'trick', tag: 'AI TRICK', source: 'Perplexity', sourceDomain: 'perplexity.ai',
-                timeAgo: '1d ago', fomoScore: 7, url: 'https://perplexity.ai', emoji: '💡',
-                publishedAt: new Date(Date.now() - 26 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '1d ago', fomoScore: 6, url: 'https://perplexity.ai', emoji: '💡',
+                publishedAt: new Date(Date.now() - 26 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-18', title: 'Runway Gen-3 Alpha: AI video with character consistency',
                 shortSummary: 'Runway\'s latest model generates video clips with consistent characters across scenes. Describe a character once and reuse them throughout your project.',
                 type: 'tool-update', tag: 'TOOL UPDATE', source: 'Runway', sourceDomain: 'runwayml.com',
-                timeAgo: '1d ago', fomoScore: 7, url: 'https://runwayml.com', emoji: '🔧',
-                publishedAt: new Date(Date.now() - 28 * 3600 * 1000).toISOString(), actionability: 8,
+                timeAgo: '1d ago', fomoScore: 5, url: 'https://runwayml.com', emoji: '🔧',
+                publishedAt: new Date(Date.now() - 28 * 3600 * 1000).toISOString(), actionability: 6,
             },
             {
                 id: 'fb-19', title: 'System prompts: the most powerful AI technique most people skip',
                 shortSummary: 'A system prompt tells the AI HOW to behave before your question. "You are a senior technical writer who uses short sentences and avoids jargon" transforms every response.',
                 type: 'workflow', tag: 'WORKFLOW', source: 'r/AIPromptProgramming', sourceDomain: 'reddit.com',
-                timeAgo: '1d ago', fomoScore: 8, url: 'https://reddit.com', emoji: '🔄',
-                publishedAt: new Date(Date.now() - 30 * 3600 * 1000).toISOString(), actionability: 10,
+                timeAgo: '1d ago', fomoScore: 6, url: 'https://reddit.com', emoji: '🔄',
+                publishedAt: new Date(Date.now() - 30 * 3600 * 1000).toISOString(), actionability: 7,
             },
             {
                 id: 'fb-20', title: 'Notion AI: turn messy notes into structured action plans',
                 shortSummary: 'Select any block of text in Notion and use AI to summarize, extract action items, or rewrite in a different tone. Works natively within your workspace.',
                 type: 'trick', tag: 'AI TRICK', source: 'Notion', sourceDomain: 'notion.so',
-                timeAgo: '1d ago', fomoScore: 7, url: 'https://notion.so', emoji: '💡',
-                publishedAt: new Date(Date.now() - 32 * 3600 * 1000).toISOString(), actionability: 9,
+                timeAgo: '1d ago', fomoScore: 5, url: 'https://notion.so', emoji: '💡',
+                publishedAt: new Date(Date.now() - 32 * 3600 * 1000).toISOString(), actionability: 6,
             },
         ];
 
-        // Rotate selection every 6 hours so users see different items
-        const rotationSeed = Math.floor(Date.now() / (6 * 3600 * 1000));
+        // Rotate selection every hour (matches cache TTL) with proper string hash
+        const rotationSeed = Math.floor(Date.now() / (3600 * 1000));
+        const hashStr = (s: string) => {
+            let h = 0;
+            for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+            return h;
+        };
         const shuffled = [...pool].sort((a, b) => {
-            const hashA = (rotationSeed * 31 + a.id.charCodeAt(3)) % pool.length;
-            const hashB = (rotationSeed * 31 + b.id.charCodeAt(3)) % pool.length;
+            const hashA = Math.abs(hashStr(a.id + rotationSeed)) % pool.length;
+            const hashB = Math.abs(hashStr(b.id + rotationSeed)) % pool.length;
             return hashA - hashB;
         });
 
-        // Return 5 items with unique IDs based on rotation
-        return shuffled.slice(0, 5).map(item => ({
+        // Return 8 items with unique IDs based on rotation
+        return shuffled.slice(0, 8).map(item => ({
             ...item,
             id: `${item.id}-${rotationSeed}`,
         }));
