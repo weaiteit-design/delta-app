@@ -83,6 +83,7 @@ export function getPipelineStats(): PipelineStats {
         return stats ? JSON.parse(stats) : {
             lastFetchAt: '',
             sourceCounts: {},
+            sourceHealth: {},
             totalRaw: 0,
             totalAfterDedup: 0,
             totalAfterFilter: 0,
@@ -93,6 +94,7 @@ export function getPipelineStats(): PipelineStats {
         return {
             lastFetchAt: '',
             sourceCounts: {},
+            sourceHealth: {},
             totalRaw: 0,
             totalAfterDedup: 0,
             totalAfterFilter: 0,

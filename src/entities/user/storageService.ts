@@ -245,8 +245,9 @@ class StorageService {
         try {
             const raw = platformStorage.getItem(key);
             if (!raw) return null;
-            const { data, timestamp } = JSON.parse(raw);
-            if (Date.now() - timestamp > maxAgeMs) {
+            const { data, timestamp, ttlMs } = JSON.parse(raw);
+            const effectiveTtl = ttlMs ?? maxAgeMs;
+            if (Date.now() - timestamp > effectiveTtl) {
                 platformStorage.removeItem(key);
                 return null;
             }
@@ -256,16 +257,20 @@ class StorageService {
         }
     }
 
-    setCache(key: string, data: unknown): void {
+    setCache(key: string, data: unknown, ttlMs?: number): void {
         try {
-            platformStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+            platformStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now(), ttlMs }));
         } catch (e) {
             // Storage full — evict old caches
             this.evictOldCaches();
             try {
-                platformStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+                platformStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now(), ttlMs }));
             } catch { }
         }
+    }
+
+    removeCache(key: string): void {
+        platformStorage.removeItem(key);
     }
 
     private evictOldCaches(): void {

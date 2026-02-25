@@ -15,7 +15,7 @@ import { SectionLabel } from '../shared/ui/SectionLabel';
 import { FilterChips } from '../shared/ui/FilterChips';
 import { NewsCard } from '../features/NewsCard';
 import { FomoScore } from '../shared/ui/FomoScore';
-import { Play, Bookmark, BookOpen } from 'lucide-react-native';
+import { Play, Bookmark, BookOpen, RefreshCw } from 'lucide-react-native';
 import { colors, radius } from '../shared/platform/theme';
 
 interface UpdatesScreenProps {
@@ -27,6 +27,7 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
     const [filter, setFilter] = useState('⚡ For You');
     const [updates, setUpdates] = useState<VerifiedUpdate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [generatingLesson, setGeneratingLesson] = useState(false);
     const [saved, setSaved] = useState(false);
 
@@ -76,6 +77,21 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
         });
     })();
 
+    const handleRefresh = async () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        setLoading(true);
+        try {
+            const data = await contentPipeline.forceRefresh();
+            setUpdates(data);
+        } catch {
+            // silently fail — keep existing updates
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
     const handleHeroLesson = async () => {
         if (!hero || generatingLesson) return;
         setGeneratingLesson(true);
@@ -105,8 +121,16 @@ export function UpdatesScreen({ onSelectUpdate, onStartLesson }: UpdatesScreenPr
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Updates</Text>
-                {/* Pipeline source indicator */}
+                {/* Refresh + pipeline source indicator */}
                 <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        onPress={handleRefresh}
+                        disabled={refreshing}
+                        style={styles.refreshBtn}
+                        activeOpacity={0.7}
+                    >
+                        <RefreshCw size={14} color={colors.text3} />
+                    </TouchableOpacity>
                     <View style={[
                         styles.statusBadge,
                         { borderColor: stats.cacheHit ? 'rgba(96,165,250,0.4)' : 'rgba(52,211,153,0.4)' }
@@ -248,6 +272,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+    },
+    refreshBtn: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     statusBadge: {
         flexDirection: 'row',
