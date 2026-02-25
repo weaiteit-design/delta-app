@@ -43,6 +43,10 @@ export default defineConfig({
     resolve: {
         alias: {
             'react-native': 'react-native-web',
+            // Stub out the React Native Fabric codegen API — it calls the native bridge
+            // at module initialisation time and crashes the web bundle on load.
+            // Both react-native-screens and react-native-gesture-handler use it.
+            'react-native/Libraries/Utilities/codegenNativeComponent': path.resolve(__dirname, 'src/shims/codegenNativeComponent.ts'),
             'lucide-react-native': path.resolve(__dirname, 'node_modules/lucide-react/dist/esm/lucide-react.js'),
             'expo-clipboard': path.resolve(__dirname, 'src/shims/expo-clipboard.ts'),
         },
