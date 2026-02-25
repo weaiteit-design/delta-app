@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Bookmark } from 'lucide-react';
+import { View, Text, TouchableOpacity, Linking, StyleSheet } from 'react-native';
+import { Bookmark } from 'lucide-react-native';
 import { FomoScore } from '../shared/ui/FomoScore';
 import { storageService } from '../entities/user/storageService';
+import { colors, radius } from '../shared/platform/theme';
 
 interface NewsCardItem {
     id: string;
@@ -21,12 +23,12 @@ interface NewsCardProps {
 
 function getNewsColor(type: string): string {
     switch (type) {
-        case 'capability': return 'var(--red)';
-        case 'trick': return 'var(--orange)';
-        case 'workflow': return 'var(--blue)';
-        case 'new-tool': return 'var(--green)';
-        case 'tool-update': return 'var(--accent-2)';
-        default: return 'var(--text-3)';
+        case 'capability': return colors.red;
+        case 'trick':      return colors.orange;
+        case 'workflow':   return colors.blue;
+        case 'new-tool':   return colors.green;
+        case 'tool-update':return colors.accent2;
+        default:           return colors.text3;
     }
 }
 
@@ -34,92 +36,87 @@ export function NewsCard({ item, onClick }: NewsCardProps) {
     const [saved, setSaved] = useState(() => storageService.isArticleSaved(item.id));
     const dotColor = getNewsColor(item.type);
 
+    const handlePress = () => {
+        if (onClick) {
+            onClick();
+        } else if (item.url) {
+            Linking.openURL(item.url);
+        }
+    };
+
     return (
-        <div
-            onClick={onClick || (() => item.url && window.open(item.url, '_blank'))}
-            style={{
-                padding: '14px 16px',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 20,
-                display: 'flex',
-                gap: 14,
-                cursor: 'pointer',
-                transition: 'transform 0.15s ease',
-            }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.99)')}
-            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-        >
+        <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.85}>
             {/* Type dot */}
-            <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: dotColor,
-                marginTop: 5,
-                flexShrink: 0,
-            }} />
+            <View style={[styles.typeDot, { backgroundColor: dotColor }]} />
 
             {/* Content */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase' as const,
-                    color: dotColor,
-                }}>
-                    {item.tag}
-                </span>
-                <div style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: 'var(--text-1)',
-                    lineHeight: 1.4,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical' as const,
-                    overflow: 'hidden',
-                    margin: '4px 0',
-                }}>
-                    {item.title}
-                </div>
-                <div style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 11,
-                    color: 'var(--text-3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                }}>
-                    {item.source}
-                    <span style={{ color: 'var(--border-2)' }}>·</span>
-                    {item.timeAgo}
-                </div>
-            </div>
+            <View style={styles.content}>
+                <Text style={[styles.tag, { color: dotColor }]}>{item.tag}</Text>
+                <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.meta}>{item.source} · {item.timeAgo}</Text>
+            </View>
 
-            {/* FOMO Score and Bookmark */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setSaved(storageService.toggleArticleSave(item.id));
-                    }}
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: 4,
-                        display: 'flex',
-                    }}
+            {/* Right: bookmark + FOMO */}
+            <View style={styles.right}>
+                <TouchableOpacity
+                    onPress={() => setSaved(storageService.toggleArticleSave(item.id))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                    <Bookmark size={18} fill={saved ? 'var(--yellow)' : 'none'} color={saved ? 'var(--yellow)' : 'var(--text-3)'} />
-                </button>
+                    <Bookmark
+                        size={18}
+                        fill={saved ? colors.yellow : 'none'}
+                        color={saved ? colors.yellow : colors.text3}
+                    />
+                </TouchableOpacity>
                 <FomoScore score={item.fomoScore} />
-            </div>
-        </div>
+            </View>
+        </TouchableOpacity>
     );
 }
+
+const styles = StyleSheet.create({
+    card: {
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.xl,
+        flexDirection: 'row',
+        gap: 14,
+    },
+    typeDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginTop: 5,
+        flexShrink: 0,
+    },
+    content: {
+        flex: 1,
+        minWidth: 0,
+    },
+    tag: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.6,
+        textTransform: 'uppercase',
+        marginBottom: 4,
+    },
+    title: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: colors.text1,
+        lineHeight: 19,
+        marginBottom: 4,
+    },
+    meta: {
+        fontSize: 11,
+        color: colors.text3,
+    },
+    right: {
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+    },
+});

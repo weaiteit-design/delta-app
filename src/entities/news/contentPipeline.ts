@@ -17,6 +17,7 @@ import {
 import { storageService, UserProfile } from '../user/storageService';
 import { deltaService } from '../../shared/api/deltaService';
 import { batchUpsertContentCache, CachedContentRow } from '../../shared/api/supabaseClient';
+import platformStorage from '../../shared/platform/storage';
 import { fetchNewsApiArticles } from './sources/newsApiSource';
 import { fetchRedditPosts } from './sources/redditSource';
 import { fetchHackerNewsPosts } from './sources/hackerNewsSource';

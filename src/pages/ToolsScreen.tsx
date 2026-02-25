@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
 import { deltaService, CURATED_TOOLS } from '../shared/api/deltaService';
 import { storageService } from '../entities/user/storageService';
 import { ToolData } from '../shared/types/types';
 import { SectionLabel } from '../shared/ui/SectionLabel';
 import { FilterChips } from '../shared/ui/FilterChips';
 import { ToolListItem } from '../features/ToolListItem';
-import { Search } from 'lucide-react';
+import { Search } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 interface ToolsScreenProps {
     onSelectTool: (tool: ToolData) => void;
@@ -117,51 +125,29 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
     };
 
     return (
-        <div className="screen-container">
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Status bar */}
-            <div style={{ height: 44 }} />
+            <View style={{ height: 44 }} />
 
             {/* Header */}
-            <div style={{ padding: '8px 20px 16px' }}>
-                <h1 style={{
-                    fontFamily: "'Syne', sans-serif",
-                    fontSize: 24,
-                    fontWeight: 800,
-                    color: 'var(--text-1)',
-                    margin: 0,
-                }}>Tools</h1>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: 'var(--text-3)',
-                    marginTop: 4,
-                }}>Personalised to your profile · {user.role}</p>
-            </div>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Tools</Text>
+                <Text style={styles.headerSubtitle}>Personalised to your profile · {user.role}</Text>
+            </View>
 
             {/* Search Bar */}
-            <div style={{ margin: '0 20px 14px', position: 'relative' }}>
-                <Search size={16} color="var(--text-3)" style={{
-                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                }} />
-                <input
-                    type="text"
+            <View style={styles.searchContainer}>
+                <View style={styles.searchIconWrapper}>
+                    <Search size={16} color={colors.text3} />
+                </View>
+                <TextInput
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChangeText={setSearch}
                     placeholder="Search AI tools..."
-                    style={{
-                        width: '100%', height: 44,
-                        background: 'var(--surface-2)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 14,
-                        padding: '0 14px 0 40px',
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13, color: 'var(--text-1)',
-                        outline: 'none', transition: 'border-color 0.2s',
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-2)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+                    placeholderTextColor={colors.text3}
+                    style={styles.searchInput}
                 />
-            </div>
+            </View>
 
             {/* Filter Chips */}
             <FilterChips
@@ -174,7 +160,7 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
             {!search && filter === 'All' && (
                 <>
                     <SectionLabel>⚡ BEST FOR YOU</SectionLabel>
-                    <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                    <View style={styles.toolsList}>
                         {bestForYou.map(tool => (
                             <ToolListItem
                                 key={tool.id}
@@ -182,7 +168,7 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
                                 onClick={() => onSelectTool(tool)}
                             />
                         ))}
-                    </div>
+                    </View>
                 </>
             )}
 
@@ -190,7 +176,7 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
             {filterCategory(newTools).length > 0 && (
                 <>
                     <SectionLabel>🆕 NEW & TRENDING</SectionLabel>
-                    <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                    <View style={styles.toolsList}>
                         {filterCategory(newTools).map(tool => (
                             <ToolListItem
                                 key={tool.id}
@@ -198,13 +184,13 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
                                 onClick={() => onSelectTool(tool)}
                             />
                         ))}
-                    </div>
+                    </View>
                 </>
             )}
 
             {/* All Tools */}
             <SectionLabel>🛠️ ALL TOOLS ({filterCategory(allTools).length})</SectionLabel>
-            <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <View style={styles.toolsListLast}>
                 {filterCategory(allTools)
                     .sort((a, b) => b.matchScore - a.matchScore)
                     .map(tool => (
@@ -214,9 +200,64 @@ export function ToolsScreen({ onSelectTool }: ToolsScreenProps) {
                             onClick={() => onSelectTool(tool)}
                         />
                     ))}
-            </div>
+            </View>
 
-            <div style={{ height: 20 }} />
-        </div>
+            <View style={{ height: 20 }} />
+        </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: colors.text1,
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: colors.text3,
+        marginTop: 4,
+    },
+    searchContainer: {
+        marginHorizontal: 20,
+        marginBottom: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 14,
+        height: 44,
+    },
+    searchIconWrapper: {
+        paddingLeft: 14,
+        paddingRight: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    searchInput: {
+        flex: 1,
+        height: 44,
+        fontSize: 13,
+        color: colors.text1,
+        paddingRight: 14,
+    },
+    toolsList: {
+        paddingHorizontal: 20,
+        gap: 10,
+        marginBottom: 28,
+    },
+    toolsListLast: {
+        paddingHorizontal: 20,
+        gap: 10,
+    },
+});

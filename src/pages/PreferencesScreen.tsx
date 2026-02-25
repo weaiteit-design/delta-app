@@ -1,4 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
 import {
     storageService,
     UserProfile,
@@ -10,6 +17,7 @@ import {
     CONTENT_CATEGORIES,
 } from '../entities/user/storageService';
 import { CURATED_TOOLS } from '../shared/api/deltaService';
+import { colors, radius } from '../shared/platform/theme';
 
 // ============================================
 // PREFERENCES SCREEN
@@ -23,86 +31,139 @@ interface PreferencesScreenProps {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
     return (
-        <div style={{
-            fontFamily: "'Syne', sans-serif",
-            fontSize: 11,
-            fontWeight: 700,
-            textTransform: 'uppercase' as const,
-            letterSpacing: '0.1em',
-            color: 'var(--text-3)',
-            margin: '24px 20px 10px',
-        }}>{children}</div>
+        <View style={sectionLabelStyles.container}>
+            <Text style={sectionLabelStyles.text}>{children}</Text>
+        </View>
     );
 }
 
-function Chip({ label, selected, onClick, emoji }: { label: string; selected: boolean; onClick: () => void; emoji?: string }) {
+const sectionLabelStyles = StyleSheet.create({
+    container: {
+        marginTop: 24,
+        marginBottom: 10,
+        marginHorizontal: 20,
+    },
+    text: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        color: colors.text3,
+    },
+});
+
+function Chip({ label, selected, onPress, emoji }: { label: string; selected: boolean; onPress: () => void; emoji?: string }) {
     return (
-        <button
-            onClick={onClick}
-            style={{
-                background: selected ? 'rgba(99,102,241,0.15)' : 'var(--surface-2)',
-                border: `1px solid ${selected ? 'rgba(99,102,241,0.5)' : 'var(--border)'}`,
-                borderRadius: 20,
-                padding: '8px 14px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
-                fontWeight: selected ? 600 : 400,
-                color: selected ? 'var(--accent-2)' : 'var(--text-2)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-            }}
+        <TouchableOpacity
+            onPress={onPress}
+            style={[chipStyles.chip, selected && chipStyles.chipSelected]}
+            activeOpacity={0.7}
         >
-            {emoji && <span>{emoji}</span>}
-            {label}
-            {selected && <span style={{ fontSize: 14 }}>✓</span>}
-        </button>
+            {emoji && <Text style={chipStyles.emoji}>{emoji}</Text>}
+            <Text style={[chipStyles.label, selected && chipStyles.labelSelected]}>{label}</Text>
+            {selected && <Text style={chipStyles.check}>✓</Text>}
+        </TouchableOpacity>
     );
 }
 
-function RadioChip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
+const chipStyles = StyleSheet.create({
+    chip: {
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    chipSelected: {
+        backgroundColor: 'rgba(99,102,241,0.15)',
+        borderColor: 'rgba(99,102,241,0.5)',
+    },
+    label: {
+        fontSize: 13,
+        fontWeight: '400',
+        color: colors.text2,
+    },
+    labelSelected: {
+        fontWeight: '600',
+        color: colors.accent2,
+    },
+    emoji: {
+        fontSize: 14,
+    },
+    check: {
+        fontSize: 14,
+        color: colors.accent2,
+    },
+});
+
+function RadioChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
     return (
-        <button
-            onClick={onClick}
-            style={{
-                background: selected
-                    ? 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.15) 100%)'
-                    : 'var(--surface-2)',
-                border: `1.5px solid ${selected ? 'rgba(99,102,241,0.5)' : 'var(--border)'}`,
-                borderRadius: 14,
-                padding: '12px 16px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
-                fontWeight: selected ? 600 : 400,
-                color: selected ? 'var(--text-1)' : 'var(--text-2)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                width: '100%',
-                textAlign: 'left' as const,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-            }}
+        <TouchableOpacity
+            onPress={onPress}
+            style={[radioStyles.chip, selected && radioStyles.chipSelected]}
+            activeOpacity={0.7}
         >
-            <span style={{
-                width: 18, height: 18,
-                borderRadius: '50%',
-                border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                background: selected ? 'var(--accent)' : 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'all 0.2s ease',
-            }}>
-                {selected && <span style={{ color: 'white', fontSize: 10 }}>●</span>}
-            </span>
-            {label}
-        </button>
+            <View style={[radioStyles.radio, selected && radioStyles.radioSelected]}>
+                {selected && <View style={radioStyles.radioInner} />}
+            </View>
+            <Text style={[radioStyles.label, selected && radioStyles.labelSelected]}>{label}</Text>
+        </TouchableOpacity>
     );
 }
+
+const radioStyles = StyleSheet.create({
+    chip: {
+        backgroundColor: colors.surface2,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+    },
+    chipSelected: {
+        backgroundColor: 'rgba(99,102,241,0.2)',
+        borderColor: 'rgba(99,102,241,0.5)',
+    },
+    radio: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        borderWidth: 2,
+        borderColor: colors.border,
+        backgroundColor: 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    radioSelected: {
+        borderColor: colors.accent,
+        backgroundColor: colors.accent,
+    },
+    radioInner: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#fff',
+    },
+    label: {
+        fontSize: 13,
+        fontWeight: '400',
+        color: colors.text2,
+        flex: 1,
+    },
+    labelSelected: {
+        fontWeight: '600',
+        color: colors.text1,
+    },
+});
 
 export function PreferencesScreen({ onClose, onSave }: PreferencesScreenProps) {
     const [user, setUser] = useState<UserProfile>(storageService.getUser());
@@ -140,196 +201,242 @@ export function PreferencesScreen({ onClose, onSave }: PreferencesScreenProps) {
     };
 
     return (
-        <div className="screen-container" style={{ position: 'relative' }}>
+        <View style={styles.container}>
             {/* Status bar area */}
-            <div style={{ height: 44 }} />
+            <View style={{ height: 44 }} />
 
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 20px 16px',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <button onClick={onClose} style={{
-                        background: 'var(--surface-2)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 12,
-                        width: 36, height: 36,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: 'var(--text-2)',
-                        fontSize: 16,
-                    }}>←</button>
-                    <h1 style={{
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 22,
-                        fontWeight: 800,
-                        color: 'var(--text-1)',
-                        margin: 0,
-                    }}>Preferences</h1>
-                </div>
-            </div>
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity
+                        onPress={onClose}
+                        style={styles.backBtn}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.backBtnText}>←</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Preferences</Text>
+                </View>
+            </View>
 
             {/* Scrollable content */}
-            <div style={{
-                overflowY: 'auto',
-                flex: 1,
-                paddingBottom: 100,
-            }}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Intro */}
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: 'var(--text-3)',
-                    padding: '0 20px',
-                    margin: 0,
-                    lineHeight: 1.5,
-                }}>
+                <Text style={styles.intro}>
                     These drive what updates, tools, and lessons you see. The more specific you are, the more relevant your feed becomes.
-                </p>
+                </Text>
 
                 {/* Role */}
                 <SectionLabel>👤 YOUR ROLE</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                <View style={styles.chipsContainer}>
                     {ROLES.map(role => (
                         <RadioChip
                             key={role}
                             label={role}
                             selected={user.role === role}
-                            onClick={() => setUser(prev => ({ ...prev, role }))}
+                            onPress={() => setUser(prev => ({ ...prev, role }))}
                         />
                     ))}
-                </div>
+                </View>
 
                 {/* Industry */}
                 <SectionLabel>🏢 YOUR INDUSTRY</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                <View style={styles.chipsRow}>
                     {INDUSTRIES.map(ind => (
                         <Chip
                             key={ind}
                             label={ind}
                             selected={user.industry === ind}
-                            onClick={() => setUser(prev => ({ ...prev, industry: ind }))}
+                            onPress={() => setUser(prev => ({ ...prev, industry: ind }))}
                         />
                     ))}
-                </div>
+                </View>
 
                 {/* Goals */}
                 <SectionLabel>🎯 YOUR GOALS (pick up to 3)</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                <View style={styles.chipsRow}>
                     {GOALS.map(goal => (
                         <Chip
                             key={goal}
                             label={goal}
                             selected={user.goals.includes(goal)}
-                            onClick={() => {
+                            onPress={() => {
                                 if (user.goals.includes(goal) || user.goals.length < 3) {
                                     toggleArrayItem('goals', goal);
                                 }
                             }}
                         />
                     ))}
-                </div>
+                </View>
 
                 {/* AI Level */}
                 <SectionLabel>📊 YOUR AI LEVEL</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                <View style={styles.chipsRow}>
                     {AI_LEVELS.map(lvl => (
                         <Chip
                             key={lvl}
                             label={lvl}
                             selected={user.aiLevel === lvl}
-                            onClick={() => setUser(prev => ({ ...prev, aiLevel: lvl }))}
+                            onPress={() => setUser(prev => ({ ...prev, aiLevel: lvl }))}
                         />
                     ))}
-                </div>
+                </View>
 
                 {/* Learning Style */}
                 <SectionLabel>📖 HOW YOU LEARN BEST</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                <View style={styles.chipsRow}>
                     {LEARNING_STYLES.map(style => (
                         <Chip
                             key={style}
                             label={style}
                             selected={user.learningStyle === style}
-                            onClick={() => setUser(prev => ({ ...prev, learningStyle: style }))}
+                            onPress={() => setUser(prev => ({ ...prev, learningStyle: style }))}
                         />
                     ))}
-                </div>
+                </View>
 
                 {/* Preferred Categories */}
                 <SectionLabel>📚 CONTENT YOU WANT TO SEE</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                <View style={styles.chipsRow}>
                     {CONTENT_CATEGORIES.map(cat => (
                         <Chip
                             key={cat}
                             label={cat}
                             emoji={CATEGORY_EMOJIS[cat]}
                             selected={user.preferredCategories.includes(cat)}
-                            onClick={() => toggleArrayItem('preferredCategories', cat)}
+                            onPress={() => toggleArrayItem('preferredCategories', cat)}
                         />
                     ))}
-                </div>
+                </View>
 
                 {/* Tools Already Known */}
                 <SectionLabel>🛠️ TOOLS YOU ALREADY KNOW</SectionLabel>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 12,
-                    color: 'var(--text-3)',
-                    padding: '0 20px',
-                    margin: '0 0 8px',
-                }}>
+                <Text style={styles.toolsHint}>
                     We won't recommend basics for tools you already use.
-                </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px' }}>
+                </Text>
+                <View style={styles.chipsRow}>
                     {toolNames.map(name => (
                         <Chip
                             key={name}
                             label={name}
                             selected={user.toolsKnown.includes(name)}
-                            onClick={() => toggleArrayItem('toolsKnown', name)}
+                            onPress={() => toggleArrayItem('toolsKnown', name)}
                         />
                     ))}
-                </div>
-            </div>
+                </View>
+
+                <View style={{ height: 120 }} />
+            </ScrollView>
 
             {/* Save Button — fixed at bottom */}
-            <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '16px 20px',
-                background: 'linear-gradient(transparent, var(--bg) 30%)',
-                paddingTop: 40,
-            }}>
-                <button
-                    onClick={handleSave}
-                    style={{
-                        width: '100%',
-                        padding: '14px',
-                        borderRadius: 16,
-                        border: 'none',
-                        background: saved
-                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                            : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
-                        color: 'white',
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 15,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease',
-                        letterSpacing: '0.02em',
-                    }}
+            <View style={styles.saveContainer}>
+                <TouchableOpacity
+                    onPress={handleSave}
+                    style={[styles.saveBtn, saved && styles.saveBtnSaved]}
+                    activeOpacity={0.85}
                 >
-                    {saved ? '✓ Saved!' : 'Save Preferences'}
-                </button>
-            </div>
-        </div>
+                    <Text style={styles.saveBtnText}>
+                        {saved ? '✓ Saved!' : 'Save Preferences'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    backBtn: {
+        backgroundColor: colors.surface2,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 12,
+        width: 36,
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backBtnText: {
+        color: colors.text2,
+        fontSize: 16,
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: colors.text1,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 20,
+    },
+    intro: {
+        fontSize: 13,
+        color: colors.text3,
+        paddingHorizontal: 20,
+        lineHeight: 19.5,
+    },
+    chipsContainer: {
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    chipsRow: {
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    toolsHint: {
+        fontSize: 12,
+        color: colors.text3,
+        paddingHorizontal: 20,
+        marginBottom: 8,
+    },
+    saveContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+        paddingTop: 40,
+        backgroundColor: colors.bg,
+    },
+    saveBtn: {
+        width: '100%',
+        paddingVertical: 14,
+        borderRadius: 16,
+        backgroundColor: colors.accent,
+        alignItems: 'center',
+    },
+    saveBtnSaved: {
+        backgroundColor: '#10b981',
+    },
+    saveBtnText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 0.3,
+    },
+});

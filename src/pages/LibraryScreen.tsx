@@ -1,4 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    StyleSheet,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { storageService } from '../entities/user/storageService';
 import { deltaService, CURATED_TOOLS } from '../shared/api/deltaService';
 import { contentPipeline } from '../entities/news/contentPipeline';
@@ -6,7 +14,8 @@ import { VerifiedUpdate, ToolData, LessonData } from '../shared/types/types';
 import { SectionLabel } from '../shared/ui/SectionLabel';
 import { NewsCard } from '../features/NewsCard';
 import { ToolCard } from '../features/ToolCard';
-import { Bookmark, Library } from 'lucide-react';
+import { Bookmark, Library } from 'lucide-react-native';
+import { colors, radius } from '../shared/platform/theme';
 
 interface LibraryScreenProps {
     onSelectUpdate: (update: VerifiedUpdate) => void;
@@ -25,7 +34,6 @@ export function LibraryScreen({ onSelectUpdate, onSelectTool }: LibraryScreenPro
     useEffect(() => {
         let mounted = true;
 
-        // Fetch updates to resolve saved news items
         contentPipeline.getUpdates().then(allUpdates => {
             if (mounted) {
                 const userSaved = storageService.getUser().savedArticleIds || [];
@@ -40,139 +48,213 @@ export function LibraryScreen({ onSelectUpdate, onSelectTool }: LibraryScreenPro
         return () => { mounted = false; };
     }, []);
 
-    // Also listen to focus events to refresh if user saved something on another screen
-    useEffect(() => {
+    useFocusEffect(useCallback(() => {
         const handleRefresh = () => {
             const currentSavedIds = storageService.getUser().savedArticleIds || [];
             if (savedNews.length !== currentSavedIds.length) {
-                // If counts differ, do a hard refresh of the news (naive but works for local state)
                 contentPipeline.getUpdates().then(allUpdates => {
                     const savedItems = allUpdates.filter(u => currentSavedIds.includes(u.id));
                     setSavedNews(savedItems);
                 });
             }
         };
-
-        window.addEventListener('focus', handleRefresh);
-        return () => window.removeEventListener('focus', handleRefresh);
-    }, [savedNews.length]);
+        handleRefresh();
+    }, [savedNews.length]));
 
     return (
-        <div className="screen-container">
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Status bar */}
-            <div style={{ height: 44 }} />
+            <View style={{ height: 44 }} />
 
             {/* Header */}
-            <div style={{ padding: '8px 20px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                    <div style={{
-                        width: 40, height: 40, borderRadius: 12,
-                        background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
+            <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <View style={styles.headerIcon}>
                         <Library size={20} color="#fff" />
-                    </div>
-                    <h1 style={{
-                        fontFamily: "'Syne', sans-serif",
-                        fontSize: 24,
-                        fontWeight: 800,
-                        color: 'var(--text-1)',
-                        margin: 0,
-                    }}>Library</h1>
-                </div>
-                <p style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: 'var(--text-3)',
-                    marginTop: 4,
-                }}>Your personal collection of saved AI intelligence.</p>
-            </div>
+                    </View>
+                    <Text style={styles.headerTitle}>Library</Text>
+                </View>
+                <Text style={styles.headerSubtitle}>Your personal collection of saved AI intelligence.</Text>
+            </View>
 
             {/* Tabs */}
-            <div style={{
-                margin: '0 20px 24px',
-                display: 'flex',
-                background: 'var(--surface-2)',
-                padding: 4,
-                borderRadius: 16,
-                border: '1px solid var(--border)',
-            }}>
-                <button
-                    onClick={() => setActiveTab('news')}
-                    style={{
-                        flex: 1, padding: '10px 0', border: 'none',
-                        background: activeTab === 'news' ? 'var(--surface-3)' : 'transparent',
-                        borderRadius: 12, color: activeTab === 'news' ? 'var(--text-1)' : 'var(--text-3)',
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-                        cursor: 'pointer', transition: 'all 0.2s',
-                    }}
+            <View style={styles.tabContainer}>
+                <TouchableOpacity
+                    onPress={() => setActiveTab('news')}
+                    style={[styles.tab, activeTab === 'news' && styles.tabActive]}
+                    activeOpacity={0.7}
                 >
-                    Saved News ({savedNews.length})
-                </button>
-                <button
-                    onClick={() => setActiveTab('tools')}
-                    style={{
-                        flex: 1, padding: '10px 0', border: 'none',
-                        background: activeTab === 'tools' ? 'var(--surface-3)' : 'transparent',
-                        borderRadius: 12, color: activeTab === 'tools' ? 'var(--text-1)' : 'var(--text-3)',
-                        fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-                        cursor: 'pointer', transition: 'all 0.2s',
-                    }}
+                    <Text style={[styles.tabText, activeTab === 'news' && styles.tabTextActive]}>
+                        Saved News ({savedNews.length})
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => setActiveTab('tools')}
+                    style={[styles.tab, activeTab === 'tools' && styles.tabActive]}
+                    activeOpacity={0.7}
                 >
-                    Saved Tools ({savedTools.length})
-                </button>
-            </div>
+                    <Text style={[styles.tabText, activeTab === 'tools' && styles.tabTextActive]}>
+                        Saved Tools ({savedTools.length})
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
-            {/* Content */}
+            {/* News Content */}
             {activeTab === 'news' && (
-                <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <View style={styles.newsContent}>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-3)', fontFamily: "'DM Sans', sans-serif", fontSize: 14 }}>
-                            Loading saved items...
-                        </div>
+                        <View style={styles.emptyCenter}>
+                            <Text style={styles.loadingText}>Loading saved items...</Text>
+                        </View>
                     ) : savedNews.length > 0 ? (
                         savedNews.map(item => (
                             <NewsCard key={item.id} item={item} onClick={() => onSelectUpdate(item)} />
                         ))
                     ) : (
-                        <div style={{
-                            textAlign: 'center', padding: '60px 20px',
-                            background: 'var(--surface-2)', borderRadius: 24, border: '1px dashed var(--border-2)',
-                        }}>
-                            <Bookmark size={32} color="var(--text-3)" style={{ opacity: 0.5, marginBottom: 16 }} />
-                            <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, color: 'var(--text-2)', margin: '0 0 8px' }}>No saved news yet</h3>
-                            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                        <View style={styles.emptyState}>
+                            <Bookmark size={32} color={colors.text3} style={{ opacity: 0.5, marginBottom: 16 }} />
+                            <Text style={styles.emptyTitle}>No saved news yet</Text>
+                            <Text style={styles.emptySubtitle}>
                                 Tap the bookmark icon on any news update to save it here for later reference.
-                            </p>
-                        </div>
+                            </Text>
+                        </View>
                     )}
-                </div>
+                </View>
             )}
 
+            {/* Tools Content */}
             {activeTab === 'tools' && (
-                <div style={{ padding: '0 20px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <View style={styles.toolsContent}>
                     {savedTools.length > 0 ? (
-                        savedTools.map(tool => (
-                            <div key={tool.id} style={{ display: 'flex', justifyContent: 'center' }}>
-                                <ToolCard tool={{ ...tool, matchScore: tool.matchScore || 90 }} onClick={() => onSelectTool(tool)} />
-                            </div>
-                        ))
+                        <View style={styles.toolsGrid}>
+                            {savedTools.map(tool => (
+                                <View key={tool.id} style={styles.toolGridItem}>
+                                    <ToolCard tool={{ ...tool, matchScore: tool.matchScore || 90 }} onClick={() => onSelectTool(tool)} />
+                                </View>
+                            ))}
+                        </View>
                     ) : (
-                        <div style={{
-                            gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px',
-                            background: 'var(--surface-2)', borderRadius: 24, border: '1px dashed var(--border-2)',
-                        }}>
-                            <Bookmark size={32} color="var(--text-3)" style={{ opacity: 0.5, marginBottom: 16 }} />
-                            <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, color: 'var(--text-2)', margin: '0 0 8px' }}>No saved tools yet</h3>
-                            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                        <View style={styles.emptyState}>
+                            <Bookmark size={32} color={colors.text3} style={{ opacity: 0.5, marginBottom: 16 }} />
+                            <Text style={styles.emptyTitle}>No saved tools yet</Text>
+                            <Text style={styles.emptySubtitle}>
                                 Discover and save tools to build your ideal AI workspace.
-                            </p>
-                        </div>
+                            </Text>
+                        </View>
                     )}
-                </div>
+                </View>
             )}
 
-            <div style={{ height: 100 }} />
-        </div>
+            <View style={{ height: 100 }} />
+        </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+    },
+    headerTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 8,
+    },
+    headerIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: colors.text1,
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: colors.text3,
+        marginTop: 4,
+    },
+    tabContainer: {
+        marginHorizontal: 20,
+        marginBottom: 24,
+        flexDirection: 'row',
+        backgroundColor: colors.surface2,
+        padding: 4,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    tab: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 12,
+    },
+    tabActive: {
+        backgroundColor: colors.surface3,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.text3,
+    },
+    tabTextActive: {
+        color: colors.text1,
+    },
+    newsContent: {
+        paddingHorizontal: 20,
+        gap: 12,
+    },
+    emptyCenter: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    loadingText: {
+        fontSize: 14,
+        color: colors.text3,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 60,
+        paddingHorizontal: 20,
+        backgroundColor: colors.surface2,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: colors.border2,
+        borderStyle: 'dashed',
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.text2,
+        marginBottom: 8,
+    },
+    emptySubtitle: {
+        fontSize: 14,
+        color: colors.text3,
+        textAlign: 'center',
+        lineHeight: 21,
+    },
+    toolsContent: {
+        paddingHorizontal: 20,
+    },
+    toolsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    toolGridItem: {
+        width: '48%',
+        alignItems: 'center',
+    },
+});
