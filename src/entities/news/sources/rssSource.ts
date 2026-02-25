@@ -9,35 +9,35 @@ const RSS_FEEDS = [
     { name: 'Mistral', url: 'https://mistral.ai/news/feed.xml' },
     { name: 'HuggingFace', url: 'https://huggingface.co/blog/feed.xml' },
     { name: 'ArXiv AI', url: 'http://export.arxiv.org/rss/cs.AI' },
-    { name: 'GitHub Trending', url: 'https://github.com/trending/javascript.atom' },
     // Top AI newsletters
     { name: 'TLDR AI', url: 'https://tldr.tech/ai/rss' },
     { name: 'The Rundown AI', url: 'https://www.therundown.ai/feed' },
     { name: 'Bens Bites', url: 'https://bensbites.beehiiv.com/feed' },
     { name: 'Import AI', url: 'https://importai.substack.com/feed' },
     { name: 'The Batch', url: 'https://www.deeplearning.ai/the-batch/feed/' },
+    { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
+    { name: 'The Verge AI', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml' },
 ];
 
-const FALLBACK_CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const PROXY_CHAIN = [
+    (url: string) => url,  // Direct fetch (works if CORS headers present)
+    (url: string) => `/proxy?url=${encodeURIComponent(url)}`,  // Vite dev proxy
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
 
 async function fetchFeedWithFallback(url: string): Promise<Response> {
-    // Try Vite dev proxy first
-    const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
-    try {
-        const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' },
-            signal: AbortSignal.timeout(8000),
-        });
-        if (response.ok) return response;
-    } catch { /* fall through to CORS proxy */ }
-
-    // Fallback: public CORS proxy
-    const fallbackUrl = `${FALLBACK_CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(fallbackUrl, {
-        signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response;
+    const headers = { 'Accept': 'application/rss+xml, application/xml, text/xml' };
+    for (const makeUrl of PROXY_CHAIN) {
+        try {
+            const response = await fetch(makeUrl(url), {
+                headers,
+                signal: AbortSignal.timeout(8000),
+            });
+            if (response.ok) return response;
+        } catch { /* try next */ }
+    }
+    throw new Error(`All fetch attempts failed for ${url}`);
 }
 
 export async function fetchRssFeeds(): Promise<RawContentItem[]> {
@@ -49,6 +49,12 @@ export async function fetchRssFeeds(): Promise<RawContentItem[]> {
             // Native browser XML parsing
             const parser = new window.DOMParser();
             const xmlDoc = parser.parseFromString(text, "text/xml");
+
+            const errorNode = xmlDoc.querySelector('parsererror');
+            if (errorNode) {
+                console.warn(`[RSS] XML parse error for ${feed.name}`);
+                return [];
+            }
 
             const items = Array.from(xmlDoc.querySelectorAll('item, entry')).slice(0, 8);
 

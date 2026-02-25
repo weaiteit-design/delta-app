@@ -95,7 +95,7 @@ const JUNK_PATTERNS = [
     // Lawsuits/corporate drama with no product impact
     'lawsuit', 'sued', 'suing', 'settlement', 'legal battle', 'antitrust', 'ftc', 'outage', 'down for',
     // Vague think-pieces
-    'the future of', 'what ai means for', 'ai will change', 'how ai is transforming', 'path forward', 'accelerating life-saving',
+    'what ai means for', 'ai will change', 'how ai is transforming',
     // Sports/non-tech/hardware fluff
     'cricket', 'football', 'basketball', 'tennis', 'olympics', 'air con', 'switch', 'airplane',
     // Misleading "AI" mentions
@@ -355,6 +355,21 @@ class ContentPipeline {
         addResults(youtube, 'YouTube');
         addResults(rssFeeds, 'CompanyBlogs');
 
+        // Source health summary
+        const sourceHealth: Record<string, 'alive' | 'dead'> = {};
+        const healthParts: string[] = [];
+        for (const [name, count] of Object.entries(sourceCounts)) {
+            sourceHealth[name] = count > 0 ? 'alive' : 'dead';
+            healthParts.push(`${name}: ${count > 0 ? `${count} items` : 'DEAD'}`);
+        }
+        console.log(`[Pipeline] Health: ${healthParts.join(' | ')}`);
+
+        const keyDependentSources = ['NewsAPI', 'Guardian', 'NewsData', 'YouTube'];
+        const allKeySourcesDead = keyDependentSources.every(s => sourceCounts[s] === 0);
+        if (allKeySourcesDead) {
+            console.warn('[Pipeline] All API-key sources returned 0 items. Consider adding API keys to .env for richer content.');
+        }
+
         console.log('[Pipeline] Source stats:', sourceCounts, '| Total raw:', allRaw.length);
 
         if (allRaw.length === 0) {
@@ -362,6 +377,7 @@ class ContentPipeline {
             const stats: PipelineStats = {
                 lastFetchAt: new Date().toISOString(),
                 sourceCounts,
+                sourceHealth,
                 totalRaw: 0,
                 totalAfterDedup: 0,
                 totalAfterFilter: 0,
@@ -403,8 +419,22 @@ class ContentPipeline {
         });
         console.log('[Pipeline] After relevance + junk filter:', relevantItems.length);
 
+        // 3-tier fallback: strict AI_CORE → soft (junk-only removal) → all deduped
+        let itemsToClassify: RawContentItem[];
+        if (relevantItems.length >= 5) {
+            itemsToClassify = relevantItems;
+        } else {
+            const softFiltered = deduped.filter(item => !isJunkContent(item));
+            if (softFiltered.length > 0) {
+                console.log(`[Pipeline] Strict filter too aggressive (${relevantItems.length}), using soft filter (${softFiltered.length})`);
+                itemsToClassify = softFiltered;
+            } else {
+                itemsToClassify = deduped;
+            }
+        }
+
         // Convert to VerifiedUpdates with per-item cache check
-        const { updates, newlyClassified } = rawToVerified(relevantItems.length > 0 ? relevantItems : deduped);
+        const { updates, newlyClassified } = rawToVerified(itemsToClassify);
 
         // ---- DELTA-FICATION ----
         // Rewrite top updates in Delta Voice if they are newly classified
@@ -424,7 +454,7 @@ class ContentPipeline {
         }
 
         // Async Supabase upsert (fire-and-forget)
-        this.upsertToSupabase(relevantItems.length > 0 ? relevantItems : deduped, updates);
+        this.upsertToSupabase(itemsToClassify, updates);
 
         // Retrieve current user for personalized sorting
         const user = storageService.getUser();
@@ -467,6 +497,7 @@ class ContentPipeline {
         const stats: PipelineStats = {
             lastFetchAt: new Date().toISOString(),
             sourceCounts,
+            sourceHealth,
             totalRaw: allRaw.length,
             totalAfterDedup: deduped.length,
             totalAfterFilter: finalUpdates.length,

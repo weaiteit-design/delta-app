@@ -11,25 +11,23 @@ const SUBREDDITS = [
     { name: 'SideProject', limit: 10 },
 ];
 
-const FALLBACK_CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const PROXY_CHAIN = [
+    (url: string) => url,  // Direct fetch (works if CORS headers present)
+    (url: string) => `/proxy?url=${encodeURIComponent(url)}`,  // Vite dev proxy
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
 
 async function fetchWithFallback(url: string): Promise<any> {
-    // Try Vite dev proxy first
-    const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
-    try {
-        const response = await fetch(proxyUrl, {
-            signal: AbortSignal.timeout(8000),
-        });
-        if (response.ok) return response.json();
-    } catch { /* fall through to CORS proxy */ }
-
-    // Fallback: public CORS proxy
-    const fallbackUrl = `${FALLBACK_CORS_PROXY}${encodeURIComponent(url)}`;
-    const response = await fetch(fallbackUrl, {
-        signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    for (const makeUrl of PROXY_CHAIN) {
+        try {
+            const response = await fetch(makeUrl(url), {
+                signal: AbortSignal.timeout(8000),
+            });
+            if (response.ok) return response.json();
+        } catch { /* try next */ }
+    }
+    throw new Error(`All fetch attempts failed for ${url}`);
 }
 
 export async function fetchRedditPosts(): Promise<RawContentItem[]> {
