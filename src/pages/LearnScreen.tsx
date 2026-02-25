@@ -10,6 +10,7 @@ import { SectionLabel } from '../shared/ui/SectionLabel';
 import { LessonCard } from '../features/LessonCard';
 import { LessonData } from '../shared/types/types';
 import { deltaService } from '../shared/api/deltaService';
+import { storageService } from '../entities/user/storageService';
 import { colors, radius } from '../shared/platform/theme';
 
 interface LearnScreenProps {
@@ -25,13 +26,55 @@ const CATEGORIES = [
     { name: 'Career & Biz', emoji: '💼', done: 1, total: 4, color: colors.green },
 ];
 
-const LEARNING_PATH = {
+// Role-based recommended learning paths
+const ROLE_PATHS: Record<string, { title: string; steps: string[]; currentStep: number; currentLesson: string }> = {
+    'Student': {
+        title: 'AI Fundamentals for Students',
+        steps: ['AI Basics', 'Research Tools', 'Writing Help', 'Study Hacks', 'Build Projects'],
+        currentStep: 0,
+        currentLesson: 'Understanding AI Models',
+    },
+    'Non-Technical Pro': {
+        title: 'AI for Business Professionals',
+        steps: ['AI Overview', 'Prompting', 'Writing Tools', 'Automation', 'Advanced Workflows'],
+        currentStep: 0,
+        currentLesson: 'AI Prompting for Non-Technical Users',
+    },
+    'Technical Pro': {
+        title: 'AI Engineering Toolkit',
+        steps: ['LLM APIs', 'Coding Copilots', 'RAG Basics', 'Agents', 'Production Deploy'],
+        currentStep: 0,
+        currentLesson: 'Working with LLM APIs',
+    },
+    'Founder': {
+        title: 'AI Strategy for Founders',
+        steps: ['AI Landscape', 'Identify Use Cases', 'Build vs Buy', 'Team Upskilling', 'AI Roadmap'],
+        currentStep: 0,
+        currentLesson: 'The AI Tool Landscape',
+    },
+    'Creator & Marketer': {
+        title: 'AI-Powered Content Creation',
+        steps: ['Basics', 'Prompting', 'Writing', 'Images', 'Workflow'],
+        currentStep: 0,
+        currentLesson: 'AI Writing Fundamentals',
+    },
+};
+
+const DEFAULT_PATH = {
     title: 'AI-Powered Content Creation',
     steps: ['Basics', 'Prompting', 'Writing', 'Images', 'Workflow'],
-    currentStep: 2,
-    totalSteps: 5,
+    currentStep: 0,
     currentLesson: 'Effective AI Prompting',
 };
+
+function getLearningPath() {
+    const user = storageService.getUser();
+    const path = ROLE_PATHS[user.role] || DEFAULT_PATH;
+    // Advance step based on lessons completed (rough approximation)
+    const completedCount = user.completedLessonIds?.length || 0;
+    const step = Math.min(Math.floor(completedCount / 2), path.steps.length - 1);
+    return { ...path, currentStep: step, totalSteps: path.steps.length };
+}
 
 export function LearnScreen({ onStartLesson }: LearnScreenProps) {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -41,7 +84,8 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
     const [loadingQuick, setLoadingQuick] = useState(true);
     const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
 
-    const path = LEARNING_PATH;
+    const path = getLearningPath();
+    const user = storageService.getUser();
 
     useEffect(() => {
         let mounted = true;
@@ -121,7 +165,9 @@ export function LearnScreen({ onStartLesson }: LearnScreenProps) {
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Learn</Text>
-                <Text style={styles.headerSubtitle}>Your personalised AI learning path</Text>
+                <Text style={styles.headerSubtitle}>
+                    {user.role ? `Personalised for ${user.role}s` : 'Your personalised AI learning path'}
+                </Text>
             </View>
 
             {/* Learning Path Card */}
