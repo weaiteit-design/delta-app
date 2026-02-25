@@ -72,34 +72,70 @@ function MainTabs() {
         >
             <Tab.Screen
                 name="Home"
-                component={HomeScreen}
                 options={{ tabBarLabel: 'Home', tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }}
-            />
+            >
+                {({ navigation }) => (
+                    <HomeScreen
+                        onProfile={() => (navigation as any).navigate('Profile')}
+                        onSelectTool={(tool) => (navigation as any).navigate('ToolDetail', { tool })}
+                        onSelectUpdate={(update) => (navigation as any).navigate('ArticleReader', { article: update })}
+                        onStartLesson={(lesson) => (navigation as any).navigate('Lesson', { lesson })}
+                    />
+                )}
+            </Tab.Screen>
             <Tab.Screen
                 name="Updates"
-                component={UpdatesScreen}
                 options={{ tabBarLabel: 'Updates', tabBarIcon: ({ color, size }) => <Newspaper color={color} size={size} /> }}
-            />
+            >
+                {({ navigation }) => (
+                    <UpdatesScreen
+                        onSelectUpdate={(update) => (navigation as any).navigate('ArticleReader', { article: update })}
+                        onStartLesson={(lesson) => (navigation as any).navigate('Lesson', { lesson })}
+                    />
+                )}
+            </Tab.Screen>
             <Tab.Screen
                 name="Learn"
-                component={LearnScreen}
                 options={{ tabBarLabel: 'Learn', tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} /> }}
-            />
+            >
+                {({ navigation }) => (
+                    <LearnScreen
+                        onStartLesson={(lesson) => (navigation as any).navigate('Lesson', { lesson })}
+                    />
+                )}
+            </Tab.Screen>
             <Tab.Screen
                 name="Tools"
-                component={ToolsScreen}
                 options={{ tabBarLabel: 'Tools', tabBarIcon: ({ color, size }) => <Wrench color={color} size={size} /> }}
-            />
+            >
+                {({ navigation }) => (
+                    <ToolsScreen
+                        onSelectTool={(tool) => (navigation as any).navigate('ToolDetail', { tool })}
+                    />
+                )}
+            </Tab.Screen>
             <Tab.Screen
                 name="Chat"
-                component={ChatScreen}
                 options={{ tabBarLabel: 'Chat', tabBarIcon: ({ color, size }) => <MessageCircle color={color} size={size} /> }}
-            />
+            >
+                {({ navigation }) => (
+                    <ChatScreen
+                        onStartLesson={(lesson) => (navigation as any).navigate('Lesson', { lesson })}
+                        onSelectTool={(tool) => (navigation as any).navigate('ToolDetail', { tool })}
+                    />
+                )}
+            </Tab.Screen>
             <Tab.Screen
                 name="Library"
-                component={LibraryScreen}
                 options={{ tabBarLabel: 'Library', tabBarIcon: ({ color, size }) => <Library color={color} size={size} /> }}
-            />
+            >
+                {({ navigation }) => (
+                    <LibraryScreen
+                        onSelectUpdate={(update) => (navigation as any).navigate('ArticleReader', { article: update })}
+                        onSelectTool={(tool) => (navigation as any).navigate('ToolDetail', { tool })}
+                    />
+                )}
+            </Tab.Screen>
         </Tab.Navigator>
     );
 }
@@ -159,16 +195,66 @@ export default function App() {
                         }}
                     >
                         {!isLoggedIn ? (
-                            <Stack.Screen name="Auth" component={AuthScreen} />
+                            <Stack.Screen name="Auth">
+                                {({ navigation }) => (
+                                    <AuthScreen onLogin={() => (navigation as any).replace('MainTabs')} />
+                                )}
+                            </Stack.Screen>
                         ) : (
                             <>
                                 <Stack.Screen name="MainTabs" component={MainTabs} />
-                                <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_bottom' }} />
-                                <Stack.Screen name="Preferences" component={PreferencesScreen} options={{ animation: 'slide_from_bottom' }} />
-                                <Stack.Screen name="Lesson" component={LessonViewer} />
-                                <Stack.Screen name="ToolDetail" component={ToolDetail} />
-                                <Stack.Screen name="ToolGuide" component={ToolGuide} />
-                                <Stack.Screen name="ArticleReader" component={ArticleReader} />
+                                <Stack.Screen name="Profile" options={{ animation: 'slide_from_bottom' }}>
+                                    {({ navigation }) => (
+                                        <ProfileScreen
+                                            onClose={() => navigation.goBack()}
+                                            onOpenPreferences={() => navigation.navigate('Preferences')}
+                                        />
+                                    )}
+                                </Stack.Screen>
+                                <Stack.Screen name="Preferences" options={{ animation: 'slide_from_bottom' }}>
+                                    {({ navigation }) => (
+                                        <PreferencesScreen
+                                            onClose={() => navigation.goBack()}
+                                            onSave={() => navigation.goBack()}
+                                        />
+                                    )}
+                                </Stack.Screen>
+                                <Stack.Screen name="Lesson">
+                                    {({ navigation, route }) => (
+                                        <LessonViewer
+                                            lesson={(route.params as any).lesson}
+                                            onBack={() => navigation.goBack()}
+                                        />
+                                    )}
+                                </Stack.Screen>
+                                <Stack.Screen name="ToolDetail">
+                                    {({ navigation, route }) => (
+                                        <ToolDetail
+                                            tool={(route.params as any).tool}
+                                            onBack={() => navigation.goBack()}
+                                            onStartLesson={(lesson) => navigation.navigate('Lesson', { lesson })}
+                                            onOpenGuide={(tool) => navigation.navigate('ToolGuide', { tool })}
+                                        />
+                                    )}
+                                </Stack.Screen>
+                                <Stack.Screen name="ToolGuide">
+                                    {({ navigation, route }) => (
+                                        <ToolGuide
+                                            tool={(route.params as any).tool}
+                                            onBack={() => navigation.goBack()}
+                                            onStartLesson={(lesson) => navigation.navigate('Lesson', { lesson })}
+                                        />
+                                    )}
+                                </Stack.Screen>
+                                <Stack.Screen name="ArticleReader">
+                                    {({ navigation, route }) => (
+                                        <ArticleReader
+                                            article={(route.params as any).article}
+                                            onBack={() => navigation.goBack()}
+                                            onStartLesson={(lesson) => navigation.navigate('Lesson', { lesson })}
+                                        />
+                                    )}
+                                </Stack.Screen>
                             </>
                         )}
                     </Stack.Navigator>

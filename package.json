@@ -11,7 +11,7 @@
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
     "dev:web": "vite",
-    "build:web": "tsc -b && vite build",
+    "build:web": "vite build",
     "preview:web": "vite preview"
   },
   "dependencies": {
